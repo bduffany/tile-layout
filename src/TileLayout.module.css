@@ -1,0 +1,78 @@
+.tileLayout {
+  display: flex;
+  flex-direction: column;
+
+  /* TODO: Are these needed? */
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.tileGroup {
+  display: flex;
+}
+
+.tile,
+.tileGroup {
+  box-sizing: border-box;
+  position: relative;
+}
+
+.tile::after,
+.tileGroup::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tileLayout.dragging .tile::after,
+.tileLayout.dragging .tileGroup::after {
+  transition: 200ms ease-out;
+}
+
+.tileLayout.dragging .dragging::after,
+.tileLayout.dragging .draggingOtherTileOver::after {
+  --movement-duration: 75ms;
+
+  transition: opacity 200ms, top var(--movement-duration) ease-out,
+    bottom var(--movement-duration) ease-out,
+    left var(--movement-duration) ease-out,
+    right var(--movement-duration) ease-out;
+  opacity: 1;
+}
+
+.draggingOtherTileOver::after {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.top::after {
+  bottom: 50%;
+}
+
+.bottom::after {
+  top: 50%;
+}
+
+.left::after {
+  right: 50%;
+}
+
+.right::after {
+  left: 50%;
+}
+
+.dragging::after {
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.tileDragHandle {
+}

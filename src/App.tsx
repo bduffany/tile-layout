@@ -1,24 +1,38 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import css from './App.module.css';
+import { TileLayoutConfig } from './layout';
+import TileLayout, { TileRenderers } from './TileLayout';
+import Todo from './todos/Todo';
+
+window.React = React;
+
+// TODO: consider using the plugin pattern for this instead, or
+// make sure it works with `React.lazy`
+const tileRenderers: TileRenderers = {
+  todo: (id: string) => {
+    return <Todo id={id as string} />;
+  },
+};
+
+const layout: TileLayoutConfig = {
+  direction: 'row',
+  gap: 1,
+  items: [
+    {
+      id: 'TODOLIST#1',
+      type: 'todo',
+    },
+    {
+      id: 'TODOLIST#2',
+      type: 'todo',
+    },
+  ],
+};
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className={css.app}>
+      <TileLayout renderers={tileRenderers} layout={layout} />
     </div>
   );
 }
