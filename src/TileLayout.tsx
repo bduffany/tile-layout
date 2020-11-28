@@ -12,6 +12,7 @@ import css from './TileLayout.module.css';
 import DebugValue from './util/DebugValue';
 import { DropRegion, getDropRegion } from './util/geometry';
 import { v4 as uuid } from 'uuid';
+import DragController, { DragControllerEvent } from './util/DragController';
 
 export type TileRenderer<T extends LayoutItemId = string> = (
   id: T
@@ -73,7 +74,7 @@ export default class TileLayout extends React.Component<
 > {
   state: TileLayoutState;
 
-  private tilesById = new Map<LayoutItemId, Tile>();
+  tilesById = new Map<LayoutItemId, Tile>();
   private tilesByElement = new Map<Element, Tile>();
 
   constructor(props: TileLayoutProps) {
@@ -196,7 +197,7 @@ export default class TileLayout extends React.Component<
             this.state.draggingTileId && css.dragging
           )}
         >
-          <Tile parentDirection="column" config={this.state.layout} />
+          <Tile config={this.state.layout} />
         </div>
       </TileLayoutContext.Provider>
     );
@@ -206,7 +207,7 @@ export default class TileLayout extends React.Component<
 // Omitting the "id" prop to avoid confusion with `config.id`.
 type TileProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
   config: TileConfig | TileGroupConfig;
-  parentDirection: TileGroupDirection;
+  parent?: Tile;
 };
 
 type TileContextValue = Tile;
@@ -237,6 +238,12 @@ class Tile extends React.Component<TileProps, TileState> {
 
   rootRef = React.createRef<HTMLDivElement>();
 
+  private borderDragController = new DragController();
+
+  constructor(props: TileProps) {
+    super(props);
+  }
+
   onDragOtherTileEnter(e: React.DragEvent) {
     this.setState({ isDraggingOtherTileOver: true });
   }
@@ -262,6 +269,7 @@ class Tile extends React.Component<TileProps, TileState> {
 
   componentWillUnmount() {
     this.context.unregisterTile(this);
+    this.borderDragController.dispose();
   }
 
   onDragStart(e: React.DragEvent) {
@@ -286,12 +294,66 @@ class Tile extends React.Component<TileProps, TileState> {
     this.setState({ isDraggingOtherTileOver: false });
   }
 
+  private lengthsAtDragStartPx = { a: 0, b: 0 };
+  private onBorderMouseDown(e: React.MouseEvent) {
+    const controllerDragStart = this.borderDragController.getDragStartHandler(
+      this.onDragBorder.bind(this)
+    );
+    const config = this.props.config as TileGroupConfig;
+    const [a, b] = config.items;
+    const containerA = this.context.tilesById.get(a.id!)!.rootRef.current!;
+    const containerB = this.context.tilesById.get(b.id!)!.rootRef.current!;
+
+    // Record initial sizes of the two tiles so we can later calculate the weights.
+    if (config.direction === 'row') {
+      this.lengthsAtDragStartPx = {
+        a: containerA.clientWidth,
+        b: containerB.clientWidth,
+      };
+    } else {
+      this.lengthsAtDragStartPx = {
+        a: containerA.clientHeight,
+        b: containerB.clientHeight,
+      };
+    }
+
+    controllerDragStart(e.nativeEvent);
+  }
+
+  private onDragBorder({
+    mouseEvent: mouse,
+    dragStartPosition: start,
+  }: DragControllerEvent) {
+    const config = this.props.config as TileGroupConfig;
+    const netDragPx =
+      config.direction === 'row' ? mouse.x - start.x : mouse.y - start.y;
+
+    const newLengths = {
+      a: this.lengthsAtDragStartPx.a + netDragPx,
+      b: this.lengthsAtDragStartPx.b - netDragPx,
+    };
+
+    const [a, b] = config.items;
+    // Note: these assignments don't cause React re-renders.
+    // TODO: Put bounds on weight deltas
+    a.weight = newLengths.a;
+    b.weight = newLengths.b;
+
+    // Assign weights to children with manual DOM mutation for smoothness.
+    const tileA = this.context.tilesById.get(a.id!)!;
+    const tileB = this.context.tilesById.get(b.id!)!;
+    tileA.rootRef.current!.style.flexGrow = String(a.weight);
+    tileB.rootRef.current!.style.flexGrow = String(b.weight);
+  }
+
   render() {
-    const parentDirection = this.props.parentDirection;
+    const parentDirection = (this.props.parent?.props.config as TileGroupConfig)
+      ?.direction;
     const config = this.props.config;
 
     const style: React.CSSProperties = {};
     const classes: (string | undefined)[] = [this.state.dropRegionClass];
+
     if ('weight' in config) {
       style.flexGrow = config.weight;
     } else if ('size' in config) {
@@ -326,7 +388,11 @@ class Tile extends React.Component<TileProps, TileState> {
       return (
         <div
           ref={this.rootRef}
-          className={classNames(css.tileGroup, ...classes)}
+          className={classNames(
+            css.tileGroup,
+            config.direction === 'row' ? css.row : css.column,
+            ...classes
+          )}
           style={{
             flexDirection: config.direction,
             ...style,
@@ -334,12 +400,19 @@ class Tile extends React.Component<TileProps, TileState> {
           {...props}
         >
           {debugValue}
-          {config.items.map((item) => (
-            <Tile
-              key={item.id}
-              parentDirection={config.direction}
-              config={item}
-            ></Tile>
+          {config.items.map((item, i) => (
+            <React.Fragment key={item.id}>
+              <Tile key={item.id} parent={this} config={item}></Tile>
+              {i < config.items.length - 1 && (
+                <div
+                  onMouseDown={this.onBorderMouseDown.bind(this)}
+                  className={classNames(
+                    css.tileBorder,
+                    config.direction === 'row' ? css.vertical : css.horizontal
+                  )}
+                />
+              )}
+            </React.Fragment>
           ))}
         </div>
       );

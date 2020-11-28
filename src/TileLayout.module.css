@@ -18,6 +18,20 @@
   position: relative;
 }
 
+.tile {
+  overflow: hidden;
+}
+
+.tileGroup.row > .tile {
+  /* Dimensions are controlled by flex-grow. */
+  width: 0;
+}
+
+.tileGroup.column > .tile {
+  /* Dimensions are controlled by flex-grow. */
+  height: 0;
+}
+
 .tile::after,
 .tileGroup::after {
   content: '';
@@ -49,6 +63,72 @@
 
 .draggingOtherTileOver::after {
   background: rgba(0, 0, 0, 0.2);
+}
+
+.tileBorder {
+  /* TODO: Allow overriding in JS */
+  --thickness: 1px;
+  --tolerance: 8px;
+  background: black;
+  position: relative;
+}
+
+.tileBorder.vertical::after,
+.tileBorder.horizontal::after {
+  content: ' ';
+  position: absolute;
+  top: 0%;
+  bottom: 0%;
+  left: 0%;
+  right: 0%;
+  --size: calc(var(--thickness) + 2 * var(--tolerance));
+  /* TODO: Do something more sensible here. */
+  z-index: 1000;
+
+  transition: 75ms ease-out;
+}
+
+.tileBorder.vertical::after {
+  cursor: ew-resize;
+  width: var(--size);
+  transform: translateX(0.5px) translateX(-50%) scaleX(0.5);
+  opacity: 0;
+}
+
+.tileBorder.vertical:hover::after {
+  transform: translateX(0.5px) translateX(-50%);
+  opacity: 1;
+}
+
+.tileBorder.vertical:hover:not(:active)::after {
+  opacity: 0;
+}
+
+.tileBorder.horizontal::after {
+  cursor: ns-resize;
+  height: var(--size);
+  transform: translateY(0.5px) translateY(-50%) scaleY(0.5);
+  opacity: 0;
+}
+
+.tileBorder.horizontal:hover::after {
+  transform: translateY(0.5px) translateY(-50%);
+  opacity: 1;
+}
+
+.tileBorder.horizontal:hover::after,
+.tileBorder.vertical:hover::after {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.tileBorder.horizontal {
+  height: var(--thickness);
+  width: 100%;
+}
+
+.tileBorder.vertical {
+  height: 100%;
+  width: var(--thickness);
 }
 
 .top::after {
