@@ -5,11 +5,9 @@ import {
   LayoutItemId,
   TileConfig,
   TileGroupConfig,
-  TileGroupDirection,
   TileLayoutConfig,
 } from './layout';
 import css from './TileLayout.module.css';
-import DebugValue from './util/DebugValue';
 import { DropRegion, getDropRegion } from './util/geometry';
 import { v4 as uuid } from 'uuid';
 import DragController, { DragControllerEvent } from './util/DragController';
@@ -239,10 +237,6 @@ class Tile extends React.Component<TileProps, TileState> {
   rootRef = React.createRef<HTMLDivElement>();
 
   private borderDragController = new DragController();
-
-  constructor(props: TileProps) {
-    super(props);
-  }
 
   onDragOtherTileEnter(e: React.DragEvent) {
     this.setState({ isDraggingOtherTileOver: true });

@@ -34,6 +34,7 @@ export default class DragController {
   getDragStartHandler(onDrag: DragListener) {
     return (e: MouseEvent) => {
       e.preventDefault();
+      this.dispose();
       this.dragStartPosition = { x: e.clientX, y: e.clientY };
       window.addEventListener(
         'mousemove',

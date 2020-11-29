@@ -100,8 +100,8 @@
   opacity: 1;
 }
 
-.tileBorder.vertical:hover:not(:active)::after {
-  opacity: 0;
+.tileBorder.vertical:hover:active::after {
+  opacity: 0.5;
 }
 
 .tileBorder.horizontal::after {
