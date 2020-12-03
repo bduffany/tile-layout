@@ -1,8 +1,7 @@
 import React, { useContext, useMemo } from 'react';
-import { TodosApiContext } from './TodosApi';
 import useAsync from '../util/useAsync';
 import css from './Todo.module.css';
-import { TileDragHandle } from '../TileLayout';
+import { TodosApiContext } from './TodosApi';
 
 type TodoProps = {
   id: string;
@@ -16,18 +15,13 @@ export default function Todo({ id }: TodoProps) {
     id,
   ]);
 
-  console.log(fetchTodo);
-
   const { pending: loading, value: todoList, error } = useAsync(fetchTodo);
 
-  if (error) return <>Failed to load TODO list</>;
+  if (error) throw error;
   if (loading || !todoList) return <>Loading TODOs...</>;
 
   return (
     <div className={css.todoListPane}>
-      <TileDragHandle className={css.tileHeader}>
-        {todoList!.title} <code>[{id}]</code>
-      </TileDragHandle>
       <div className={css.tileContent}>
         <ul>
           {todoList!.todos.map(({ id, content }) => (
@@ -37,4 +31,22 @@ export default function Todo({ id }: TodoProps) {
       </div>
     </div>
   );
+}
+
+type TodoTabProps = { id: string };
+
+export function TodoTab({ id }: TodoTabProps) {
+  const todosApi = useContext(TodosApiContext);
+
+  const fetchTodo = useMemo(() => () => todosApi.getTodoList(id), [
+    todosApi,
+    id,
+  ]);
+
+  const { pending: loading, value: todoList, error } = useAsync(fetchTodo);
+
+  if (error) throw error;
+  if (loading || !todoList) return <>...</>;
+
+  return <div className={css.todoTab}>{todoList.title}</div>;
 }

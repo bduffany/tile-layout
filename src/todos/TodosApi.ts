@@ -38,10 +38,27 @@ export class FakeTodosApi implements TodosApi {
         },
       ],
     },
+    'TODOLIST#3': {
+      title: 'Books to read',
+      todos: [
+        {
+          id: 'TODO#4',
+          content: 'Cook the Turkey',
+        },
+      ],
+    },
+    'TODOLIST#4': {
+      title: 'Stuff to buy',
+      todos: [
+        {
+          id: 'TODO#5',
+          content: 'Waffles',
+        },
+      ],
+    },
   };
 
   async getTodoList(id: string): Promise<TodoList | null> {
-    console.log(`getTodoList("${id}}")`);
     return FakeTodosApi.data[id] || null;
   }
 }

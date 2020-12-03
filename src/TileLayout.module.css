@@ -18,22 +18,38 @@
   position: relative;
 }
 
-.tile {
+.tile,
+.tileGroup {
   overflow: hidden;
+
+  /* TODO: Move to default styles */
+  background: #282c34;
 }
 
-.tileGroup.row > .tile {
+.tileGroup.row > .tile,
+.tileGroup.row > .tileTabGroup,
+.tileGroup.row > .tileGroup {
   /* Dimensions are controlled by flex-grow. */
   width: 0;
 }
 
-.tileGroup.column > .tile {
+.tileGroup.column > .tile,
+.tileGroup.column > .tileTabGroup,
+.tileGroup.column > .tileGroup {
   /* Dimensions are controlled by flex-grow. */
   height: 0;
 }
 
-.tile::after,
-.tileGroup::after {
+.tileTabGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.tileTabGroup .tile {
+  flex-grow: 1;
+}
+
+.tile::after {
   content: '';
   display: block;
   position: absolute;
@@ -45,13 +61,11 @@
   pointer-events: none;
 }
 
-.tileLayout.dragging .tile::after,
-.tileLayout.dragging .tileGroup::after {
+.tile::after {
   transition: 200ms ease-out;
 }
 
-.tileLayout.dragging .dragging::after,
-.tileLayout.dragging .draggingOtherTileOver::after {
+.draggingOtherTileOver::after {
   --movement-duration: 75ms;
 
   transition: opacity 200ms, top var(--movement-duration) ease-out,
@@ -59,9 +73,6 @@
     left var(--movement-duration) ease-out,
     right var(--movement-duration) ease-out;
   opacity: 1;
-}
-
-.draggingOtherTileOver::after {
   background: rgba(0, 0, 0, 0.2);
 }
 
@@ -73,8 +84,7 @@
   position: relative;
 }
 
-.tileBorder.vertical::after,
-.tileBorder.horizontal::after {
+.tileBorder::after {
   content: ' ';
   position: absolute;
   top: 0%;
@@ -85,7 +95,7 @@
   /* TODO: Do something more sensible here. */
   z-index: 1000;
 
-  transition: 75ms ease-out;
+  transition: transform 200ms ease-out, opacity 200ms ease-out;
 }
 
 .tileBorder.vertical::after {
@@ -118,7 +128,8 @@
 
 .tileBorder.horizontal:hover::after,
 .tileBorder.vertical:hover::after {
-  background: rgba(0, 0, 0, 0.2);
+  /* TODO: Move to "default" styles */
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .tileBorder.horizontal {
@@ -129,6 +140,38 @@
 .tileBorder.vertical {
   height: 100%;
   width: var(--thickness);
+}
+
+.tabStrip {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+
+  /* TODO: Move these into "default" styles? */
+  background: #21252b;
+  gap: 1px;
+  min-height: 36px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.27), 0 3px 5px rgba(0, 0, 0, 0.27);
+}
+
+.tabContainer {
+  /* TODO: Move these into "default" styles */
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+  background: #21252b;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  flex-grow: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tabContainer.activeTab {
+  background: #383e4a;
+}
+
+.tabContainer:not(.activeTab) {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .top::after {
@@ -155,4 +198,5 @@
 }
 
 .tileDragHandle {
+  width: 100%;
 }

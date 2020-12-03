@@ -1,16 +1,28 @@
 import React from 'react';
 import {
   applyDrop,
+  DropTarget,
   isGroup,
+  isTabGroup,
   LayoutItemId,
   TileConfig,
   TileGroupConfig,
   TileLayoutConfig,
+  TileTabGroup,
 } from './layout';
 import css from './TileLayout.module.css';
 import { DropRegion, getDropRegion } from './util/geometry';
 import { v4 as uuid } from 'uuid';
 import DragController, { DragControllerEvent } from './util/DragController';
+import { classNames } from './util/dom';
+import {
+  draggable,
+  DraggableState,
+  droppedComponent,
+  dropzone,
+  DropzoneState,
+} from './util/dragAndDrop';
+import DebugValue from './util/DebugValue';
 
 export type TileRenderer<T extends LayoutItemId = string> = (
   id: T
@@ -21,8 +33,18 @@ export type TileRenderers<T extends LayoutItemId = string> = Record<
   TileRenderer<T>
 >;
 
+export type TabRenderer<T extends LayoutItemId = string> = (
+  id: T
+) => React.ReactChild;
+
+export type TabRenderers<T extends LayoutItemId = string> = Record<
+  string,
+  TabRenderer<T>
+>;
+
 export type TileLayoutProps = JSX.IntrinsicElements['div'] & {
-  renderers: TileRenderers;
+  tileRenderers: TileRenderers;
+  tabRenderers?: TabRenderers;
   layout: TileLayoutConfig;
 };
 
@@ -34,9 +56,10 @@ const TileLayoutContext = React.createContext<TileLayoutContextValue>(
 
 type TileLayoutState = {
   layout: TileLayoutConfig | null;
-  draggingTileId?: LayoutItemId;
-  draggingOverTileId?: LayoutItemId;
 };
+
+type DraggableComponent = TabStrip | Tab;
+type IDropzoneComponent = TabStrip | Tab | Tile;
 
 /**
  * <code>TileLayout</code> renders content as draggable tiles, similar to the
@@ -73,7 +96,6 @@ export default class TileLayout extends React.Component<
   state: TileLayoutState;
 
   tilesById = new Map<LayoutItemId, Tile>();
-  private tilesByElement = new Map<Element, Tile>();
 
   constructor(props: TileLayoutProps) {
     super(props);
@@ -87,93 +109,14 @@ export default class TileLayout extends React.Component<
 
   registerTile(tile: Tile) {
     this.tilesById.set(tile.props.config.id as LayoutItemId, tile);
-    this.tilesByElement.set(tile.rootRef.current!, tile);
   }
 
   unregisterTile(tile: Tile) {
     this.tilesById.delete(tile.props.config.id as LayoutItemId);
-    this.tilesByElement.delete(tile.rootRef.current!);
-  }
-
-  onDrag(e: React.DragEvent) {
-    if (!this.state.draggingTileId) {
-      console.error(`Bad state: draggingTileId is null inside onDrag handler.`);
-      return;
-    }
-
-    // TODO: Use dragover instead
-    const elements = document.elementsFromPoint(e.clientX, e.clientY);
-    let tileDraggingOver: Tile | null = null;
-    for (const element of elements) {
-      if (this.tilesByElement.has(element)) {
-        tileDraggingOver = this.tilesByElement.get(element)!;
-        break;
-      }
-    }
-
-    // Handle dragging over this tile, or no tile.
-    if (
-      !tileDraggingOver ||
-      tileDraggingOver.props.config.id === this.state.draggingTileId
-    ) {
-      if (this.state.draggingOverTileId) {
-        this.tilesById
-          .get(this.state.draggingOverTileId)!
-          .onDragOtherTileLeave(e);
-        this.setState({ draggingOverTileId: undefined });
-      }
-      return;
-    }
-
-    if (
-      tileDraggingOver &&
-      this.state.draggingTileId !== tileDraggingOver.props.config.id &&
-      this.state.draggingOverTileId !== tileDraggingOver.props.config.id
-    ) {
-      tileDraggingOver.onDragOtherTileEnter(e);
-      this.setState({ draggingOverTileId: tileDraggingOver.props.config.id });
-    }
-
-    // Update tile being dragged over
-    if (tileDraggingOver) {
-      tileDraggingOver.onDragOtherTile(e);
-    }
-  }
-
-  onDragEnd(e: React.DragEvent) {
-    const { draggingTileId, draggingOverTileId } = this.state;
-
-    if (
-      draggingTileId &&
-      draggingOverTileId &&
-      draggingTileId !== draggingOverTileId
-    ) {
-      this.drop(
-        e,
-        this.tilesById.get(draggingTileId)!,
-        this.tilesById.get(draggingOverTileId)!
-      );
-    }
-
-    this.setState({ draggingTileId: undefined, draggingOverTileId: undefined });
-  }
-
-  private drop(e: React.DragEvent, from: Tile, to: Tile) {
-    const fromId = from.props.config.id!;
-    const toId = to.props.config.id!;
-
-    const dropRegion = getDropRegion(
-      to.rootRef.current!.getBoundingClientRect(),
-      e
-    );
-
-    const layout = applyDrop(this.state.layout, fromId, toId, dropRegion);
-
-    this.setState({ layout });
   }
 
   componentDidUpdate(prevProps: TileLayoutProps) {
-    if (prevProps.renderers !== this.props.renderers) {
+    if (prevProps.tileRenderers !== this.props.tileRenderers) {
       // TODO: Would it hurt to allow this prop to change?
       console.error(
         'TileLayout `renderers` prop changed. TileLayout does not currently support changing the renderer configuration.' +
@@ -182,19 +125,61 @@ export default class TileLayout extends React.Component<
     }
   }
 
+  handleDrop(e: React.DragEvent, to: IDropzoneComponent) {
+    const from = droppedComponent<DraggableComponent>(e);
+    if (!from) {
+      throw new Error('Could not determine dropped component from event');
+    }
+    const fromId = from.props.config.id!;
+    let toId = to.props.config.id!;
+
+    let dropTarget: DropTarget;
+
+    // TODO: Handle `from instanceof TabStrip` (dragging all tabs)
+
+    if (to instanceof TabStrip) {
+      dropTarget = { tabIndex: -1 };
+    } else if (to instanceof Tab) {
+      dropTarget = { tabIndex: to.props.index };
+      // When dropping a tab onto another tab, we actually want to drop
+      // within the parent tab group.
+      toId = to.props.parentTile.props.config.id!;
+    } else {
+      if (!(to instanceof Tile)) {
+        if (process.env.NODE_ENV === 'development') {
+          throw new Error(`Unrecognized drop target component type: ${to}`);
+        }
+        return;
+      }
+      dropTarget = {
+        dropRegion: getDropRegion(
+          to.rootRef.current!.getBoundingClientRect(),
+          e
+        ),
+      };
+      if (dropTarget.dropRegion === 'cover') {
+        // When dropping a tab onto the center of a tile, we actually want
+        // top drop within the parent tab group.
+        dropTarget = {
+          tabIndex: -1,
+        };
+      }
+    }
+
+    const layout = applyDrop(this.state.layout, fromId, toId, dropTarget);
+
+    this.setState({ layout });
+  }
+
   render() {
     if (!this.state.layout) {
-      // TODO: Handle empty layouts better
+      // TODO: Think about how to handle empty layouts
       return <></>;
     }
     return (
       <TileLayoutContext.Provider value={this}>
-        <div
-          className={classNames(
-            css.tileLayout,
-            this.state.draggingTileId && css.dragging
-          )}
-        >
+        <DebugValue label="layout" value={this.state.layout} />
+        <div className={classNames(css.tileLayout)}>
           <Tile config={this.state.layout} />
         </div>
       </TileLayoutContext.Provider>
@@ -222,12 +207,15 @@ const DROP_REGION_CLASSES: Record<DropRegion, string> = {
   right: css.right,
 };
 
-type TileState = {
-  isDragging?: boolean;
-  isDraggingOtherTileOver?: boolean;
-  dropRegionClass?: string;
-};
+type TileState = DraggableState &
+  DropzoneState & {
+    dropRegionClass?: string;
+    activeTabIndex?: number;
+  };
 
+/**
+ * The Tile component renders a TileGroupConfig, TileConfig, or TileTabGroupConfig.
+ */
 class Tile extends React.Component<TileProps, TileState> {
   static contextType = TileLayoutContext;
   context!: React.ContextType<typeof TileLayoutContext>;
@@ -238,15 +226,7 @@ class Tile extends React.Component<TileProps, TileState> {
 
   private borderDragController = new DragController();
 
-  onDragOtherTileEnter(e: React.DragEvent) {
-    this.setState({ isDraggingOtherTileOver: true });
-  }
-
-  onDragOtherTileLeave(e: React.DragEvent) {
-    this.setState({ isDraggingOtherTileOver: false });
-  }
-
-  onDragOtherTile(e: React.DragEvent) {
+  onDragOver(e: React.DragEvent) {
     const dropRegion = getDropRegion(
       this.rootRef.current!.getBoundingClientRect(),
       e
@@ -255,6 +235,10 @@ class Tile extends React.Component<TileProps, TileState> {
     if (dropRegionClass !== this.state.dropRegionClass) {
       this.setState({ dropRegionClass });
     }
+  }
+
+  onDrop(e: React.DragEvent) {
+    this.context!.handleDrop(e, this);
   }
 
   componentDidMount() {
@@ -266,29 +250,8 @@ class Tile extends React.Component<TileProps, TileState> {
     this.borderDragController.dispose();
   }
 
-  onDragStart(e: React.DragEvent) {
-    this.context.setState({ draggingTileId: this.props.config.id });
-    this.setState({ isDragging: true });
-  }
-
-  onDrag(e: React.DragEvent) {
-    this.context.onDrag(e);
-  }
-
-  onDragEnd(e: React.DragEvent) {
-    this.context.onDragEnd(e);
-    this.setState({ isDragging: false });
-  }
-
-  onDragOver(e: React.DragEvent) {
-    e.preventDefault();
-  }
-
-  onDrop(e: React.DragEvent) {
-    this.setState({ isDraggingOtherTileOver: false });
-  }
-
   private lengthsAtDragStartPx = { a: 0, b: 0 };
+
   private onBorderMouseDown(e: React.MouseEvent) {
     const controllerDragStart = this.borderDragController.getDragStartHandler(
       this.onDragBorder.bind(this)
@@ -346,10 +309,10 @@ class Tile extends React.Component<TileProps, TileState> {
     const config = this.props.config;
 
     const style: React.CSSProperties = {};
-    const classes: (string | undefined)[] = [this.state.dropRegionClass];
+    const classes: (string | undefined)[] = [];
 
     if ('weight' in config) {
-      style.flexGrow = config.weight;
+      style.flexGrow = config.weight || 1;
     } else if ('size' in config) {
       if (parentDirection === 'column') {
         style.height = config.size;
@@ -360,23 +323,6 @@ class Tile extends React.Component<TileProps, TileState> {
       // No size specified.
       style.flexGrow = 1;
     }
-
-    if (this.state.isDragging) {
-      classes.push(css.dragging);
-    }
-    if (this.state.isDraggingOtherTileOver) {
-      classes.push(css.draggingOtherTileOver);
-    }
-
-    const props: JSX.IntrinsicElements['div'] = {
-      onDragOver: chainEventHandlers(
-        this.onDragOver.bind(this),
-        this.props.onDragOver
-      ),
-      onDrop: chainEventHandlers(this.onDrop.bind(this), this.props.onDrop),
-    };
-
-    const debugValue = <></>;
 
     if (isGroup(config)) {
       return (
@@ -391,12 +337,10 @@ class Tile extends React.Component<TileProps, TileState> {
             flexDirection: config.direction,
             ...style,
           }}
-          {...props}
         >
-          {debugValue}
           {config.items.map((item, i) => (
             <React.Fragment key={item.id}>
-              <Tile key={item.id} parent={this} config={item}></Tile>
+              <Tile parent={this} config={item}></Tile>
               {i < config.items.length - 1 && (
                 <div
                   onMouseDown={this.onBorderMouseDown.bind(this)}
@@ -412,23 +356,93 @@ class Tile extends React.Component<TileProps, TileState> {
       );
     }
 
+    if (isTabGroup(config)) {
+      // TODO: Render tab strip using `tabStripRenderer`.
+      return (
+        <TileLayoutContext.Consumer>
+          {(layout) => {
+            const tabRenderers = layout.props.tabRenderers;
+            if (process.env.NODE_ENV === 'development' && !tabRenderers) {
+              throw new Error(
+                'Attempted to render tabs without providing `tabRenderers`.'
+              );
+            }
+
+            const activeTabIndex = this.state.activeTabIndex || 0;
+            const tab = config.tabs[activeTabIndex];
+
+            const renderers = layout.props.tileRenderers;
+            const renderer = renderers[tab.type].bind(renderers);
+            const content = renderer(tab.id as any);
+
+            return (
+              <TileContext.Provider value={this}>
+                <div
+                  ref={this.rootRef}
+                  className={classNames(css.tileTabGroup, ...classes)}
+                  style={style}
+                  {...dropzone(this)}
+                >
+                  {/* TODO: Render custom tab strip here instead */}
+                  {/* TODO: Handle vertical vs. horizontal orientation */}
+                  <TabStrip className={css.tabStrip} config={config}>
+                    {config.tabs.map((tab, i) => {
+                      const tabRenderer = tabRenderers![tab.type].bind(
+                        tabRenderers
+                      );
+
+                      return (
+                        <Tab
+                          key={tab.id}
+                          parentTile={this}
+                          config={tab}
+                          index={i}
+                          isActive={i === activeTabIndex}
+                        >
+                          {tabRenderer(tab.id as any)}
+                        </Tab>
+                      );
+                    })}
+                  </TabStrip>
+                  <div
+                    className={classNames(
+                      css.tile,
+                      this.state.dropRegionClass,
+                      this.state.isDraggingOver && css.draggingOtherTileOver
+                    )}
+                  >
+                    {content}
+                  </div>
+                </div>
+              </TileContext.Provider>
+            );
+          }}
+        </TileLayoutContext.Consumer>
+      );
+    }
+
+    // TODO: Make sure this works
+
     const tile = this.props.config as TileConfig;
     return (
       <TileLayoutContext.Consumer>
         {(layout) => {
-          const renderers = layout.props.renderers;
-          const renderer = renderers[tile.type].bind(renderers);
+          const renderers = layout.props.tileRenderers;
+          const renderer = renderers[tile.type as string].bind(renderers);
           const content = renderer(tile.id as any);
           if (!content) return null;
 
           return (
             <TileContext.Provider value={this}>
-              {debugValue}
               <div
                 ref={this.rootRef}
-                className={classNames(css.tile, ...classes)}
+                className={classNames(
+                  css.tile,
+                  this.state.dropRegionClass,
+                  this.state.isDraggingOver && css.draggingOtherTileOver
+                )}
                 style={style}
-                {...props}
+                {...dropzone(this)}
               >
                 {content}
               </div>
@@ -440,24 +454,57 @@ class Tile extends React.Component<TileProps, TileState> {
   }
 }
 
-type TileDragHandleState = {
-  isDragging?: boolean;
-};
+type TabProps = DraggableState &
+  DropzoneState & {
+    parentTile: Tile;
+    config: TileConfig;
+    index: number;
+    isActive: boolean;
+  };
 
-export class TileDragHandle extends React.Component<
-  JSX.IntrinsicElements['div'],
-  TileDragHandleState
-> {
-  state = {};
+class Tab extends React.Component<TabProps> {
+  static contextType = TileLayoutContext;
+  context!: React.ContextType<typeof TileLayoutContext>;
 
-  onDragStart() {
-    this.setState({ isDragging: true });
+  rootRef = React.createRef<HTMLDivElement>();
+
+  onDrop(e: React.DragEvent) {
+    this.context!.handleDrop(e, this);
   }
 
-  onDrag() {}
+  render() {
+    const { children, isActive } = this.props;
 
-  onDragEnd() {
-    this.setState({ isDragging: false });
+    return (
+      <div
+        ref={this.rootRef}
+        className={classNames(css.tabContainer, isActive && css.activeTab)}
+        {...draggable(this)}
+        {...dropzone(this)}
+      >
+        {children}
+      </div>
+    );
+  }
+}
+
+// Omitting "id" to avoid confusion with `config.id`.
+type TabStripProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
+  config: TileTabGroup;
+};
+
+type TabStripState = DraggableState & DropzoneState;
+
+class TabStrip extends React.Component<TabStripProps, TabStripState> {
+  static contextType = TileLayoutContext;
+  context!: React.ContextType<typeof TileLayoutContext>;
+
+  state: TabStripState = {};
+
+  rootRef = React.createRef<HTMLDivElement>();
+
+  onDrop(e: React.DragEvent) {
+    this.context!.handleDrop(e, this);
   }
 
   render() {
@@ -465,23 +512,14 @@ export class TileDragHandle extends React.Component<
       <TileContext.Consumer>
         {(tile) => (
           <div
-            draggable
-            className={classNames(css.tileDragHandle, this.props.className)}
-            onDragStart={chainEventHandlers(
-              tile.onDragStart.bind(tile),
-              this.onDragStart.bind(this),
-              this.props.onDragStart
+            ref={this.rootRef}
+            className={classNames(
+              css.tileDragHandle,
+              this.state.isDraggingOver && css.draggingOtherTileOver,
+              this.props.className
             )}
-            onDrag={chainEventHandlers(
-              tile.onDrag.bind(tile),
-              this.onDrag.bind(this),
-              this.props.onDrag
-            )}
-            onDragEnd={chainEventHandlers(
-              tile.onDragEnd.bind(tile),
-              this.onDragEnd.bind(this),
-              this.props.onDragEnd
-            )}
+            {...draggable(this)}
+            {...dropzone(this)}
           >
             {this.props.children}
           </div>
@@ -489,30 +527,4 @@ export class TileDragHandle extends React.Component<
       </TileContext.Consumer>
     );
   }
-}
-
-function classNames(
-  ...values: (string | boolean | number | undefined | null)[]
-) {
-  return values.filter(Boolean).join(' ');
-}
-
-function chainEventHandlers<T = Element, E extends Event = Event>(
-  ...handlers: (
-    | React.EventHandler<React.SyntheticEvent<T, E>>
-    | undefined
-    | null
-  )[]
-): React.EventHandler<React.SyntheticEvent<T, E>> {
-  const chain = handlers.filter(Boolean).reverse() as React.EventHandler<
-    React.SyntheticEvent<T, E>
-  >[];
-  return (e) => {
-    for (const handler of chain) {
-      handler(e);
-      if (e.isPropagationStopped()) {
-        return;
-      }
-    }
-  };
 }
