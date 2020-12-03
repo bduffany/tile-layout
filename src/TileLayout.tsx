@@ -454,15 +454,18 @@ class Tile extends React.Component<TileProps, TileState> {
   }
 }
 
-type TabProps = DraggableState &
-  DropzoneState & {
-    parentTile: Tile;
-    config: TileConfig;
-    index: number;
-    isActive: boolean;
-  };
+type TabProps = {
+  parentTile: Tile;
+  config: TileConfig;
+  index: number;
+  isActive: boolean;
+};
 
-class Tab extends React.Component<TabProps> {
+type TabState = DraggableState & DropzoneState;
+
+class Tab extends React.Component<TabProps, TabState> {
+  state: TabState = {};
+
   static contextType = TileLayoutContext;
   context!: React.ContextType<typeof TileLayoutContext>;
 
@@ -478,7 +481,11 @@ class Tab extends React.Component<TabProps> {
     return (
       <div
         ref={this.rootRef}
-        className={classNames(css.tabContainer, isActive && css.activeTab)}
+        className={classNames(
+          css.tabContainer,
+          isActive && css.activeTab,
+          this.state.isDraggingOver && css.isDraggingOtherTileOver
+        )}
         {...draggable(this)}
         {...dropzone(this)}
       >

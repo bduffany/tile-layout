@@ -10,42 +10,60 @@
  */
 
 import { v4 as uuid } from 'uuid';
-import { composeEventHandlers } from './dom';
 import WeakBiMap from './WeakBiMap';
 
-function onDragStart(this: React.Component, e: React.DragEvent) {
-  this.setState({ isDragging: true });
+function onDragStart(
+  this: React.Component & DraggableReactCallbacks,
+  e: React.DragEvent<any>
+) {
   e.stopPropagation();
+  this.setState({ isDragging: true });
   e.dataTransfer.setData(
     'text',
     (e.target as HTMLElement).dataset['draggableId'] as string
   );
+  if (this.onDragStart) {
+    this.onDragStart(e);
+  }
 }
-function onDrag(this: React.Component, e: React.DragEvent) {
+function onDrag(
+  this: React.Component & DraggableReactCallbacks,
+  e: React.DragEvent<any>
+) {
   e.stopPropagation();
+  if (this.onDrag) {
+    this.onDrag(e);
+  }
 }
-function onDragEnd(this: React.Component, e: React.DragEvent) {
+function onDragEnd(
+  this: React.Component & DraggableReactCallbacks,
+  e: React.DragEvent<any>
+) {
   this.setState({ isDragging: false });
   e.stopPropagation();
+  if (this.onDragEnd) {
+    this.onDragEnd(e);
+  }
 }
 
 export type DraggableState = {
   isDragging?: boolean;
 };
 
-export type IDraggableReactCallbacks = Pick<
+export type DraggableReactCallbacks = Pick<
   JSX.IntrinsicElements['div'],
   'onDrag' | 'onDragStart' | 'onDragEnd'
 >;
 
 const componentDraggableId = new WeakBiMap<React.Component, string>();
+const componentDropzoneId = new WeakBiMap<React.Component, string>();
 
 export function draggable(
-  draggable: React.Component & IDraggableReactCallbacks
+  draggable: React.Component & DraggableReactCallbacks
 ): {
   draggable: true;
   'data-draggable-id': string;
-} & IDraggableReactCallbacks {
+} & DraggableReactCallbacks {
   let draggableId = componentDraggableId.getValue(draggable);
   if (!draggableId) {
     draggableId = `draggable__${uuid()}`;
@@ -55,65 +73,99 @@ export function draggable(
   return {
     draggable: true,
     'data-draggable-id': draggableId,
-    onDragStart: composeEventHandlers(
-      onDragStart.bind(draggable),
-      draggable?.onDragStart?.bind(draggable)
-    ),
-    onDrag: composeEventHandlers(
-      onDrag.bind(draggable),
-      draggable?.onDrag?.bind(draggable)
-    ),
-    onDragEnd: composeEventHandlers(
-      onDragEnd.bind(draggable),
-      draggable?.onDragEnd?.bind(draggable)
-    ),
+    onDragStart: onDragStart.bind(draggable),
+    onDrag: onDrag.bind(draggable),
+    onDragEnd: onDragEnd.bind(draggable),
   };
 }
 
-function onDragEnter(this: React.Component, e: React.DragEvent) {
-  this.setState({ isDraggingOver: true });
-  e.stopPropagation();
+function closestAncestorMatching(
+  predicate: (el: Element) => boolean,
+  el: Element | null
+) {
+  while (el && !predicate(el)) {
+    el = el.parentElement;
+  }
+  return el;
 }
-function onDragOver(this: React.Component, e: React.DragEvent) {
+const closestDropzoneAncestor = closestAncestorMatching.bind(null, (el) =>
+  Boolean(el instanceof HTMLElement && el.dataset['dropzoneId'])
+) as (el: Element | null) => HTMLElement | null;
+
+function onDragEnter(
+  this: React.Component & DropzoneReactCallbacks,
+  e: React.DragEvent<any>
+) {
+  e.stopPropagation();
+  this.setState({ isDraggingOver: true });
+  if (this.onDragEnter) {
+    this.onDragEnter(e);
+  }
+}
+function onDragOver(
+  this: React.Component & DropzoneReactCallbacks,
+  e: React.DragEvent<any>
+) {
+  // Let it be known that this element is a dropzone.
   e.stopPropagation();
   e.preventDefault();
+  if (this.onDragOver) {
+    this.onDragOver(e);
+  }
 }
-function onDrop(this: React.Component, e: React.DragEvent) {
-  this.setState({ isDraggingOver: false });
+function onDrop(
+  this: React.Component & DropzoneReactCallbacks,
+  e: React.DragEvent<any>
+) {
+  console.log('onDrop', e.target);
   e.stopPropagation();
+  this.setState({ isDraggingOver: false });
+  if (this.onDrop) {
+    this.onDrop(e);
+  }
 }
-function onDragLeave(this: React.Component, e: React.DragEvent) {
-  this.setState({ isDraggingOver: false });
-  e.stopPropagation();
+function onDragLeave(
+  this: React.Component & DropzoneReactCallbacks,
+  e: React.DragEvent<any>
+) {
+  // Only invoke dragLeave if the drag has actually left the dropzone element.
+  const [hoveredElement] = document.elementsFromPoint(e.clientX, e.clientY);
+  const dropzone = closestDropzoneAncestor(hoveredElement as Element);
+  if (
+    !dropzone ||
+    dropzone.dataset['dropzoneId'] !== componentDropzoneId.getValue(this)
+  ) {
+    this.setState({ isDraggingOver: false });
+    e.stopPropagation();
+    if (this.onDragLeave) {
+      this.onDragLeave(e);
+    }
+  }
 }
 
 export type DropzoneState = {
   isDraggingOver?: boolean;
 };
 
-export type DropzoneReactCallbacks = Pick<
-  JSX.IntrinsicElements['div'],
-  'onDragEnter' | 'onDragOver' | 'onDragLeave' | 'onDrop'
->;
+type IntrinsicElement = JSX.IntrinsicElements[keyof JSX.IntrinsicElements];
+
+export type DropzoneReactCallbacks<
+  T extends IntrinsicElement = JSX.IntrinsicElements['div']
+> = Pick<T, 'onDragEnter' | 'onDragOver' | 'onDragLeave' | 'onDrop'>;
 
 export function dropzone(dropzone: React.Component & DropzoneReactCallbacks) {
+  let dropzoneId = componentDropzoneId.getValue(dropzone);
+  if (!dropzoneId) {
+    dropzoneId = `droppable__${uuid()}`;
+    componentDropzoneId.set(dropzone, dropzoneId);
+  }
+
   return {
-    onDragEnter: composeEventHandlers(
-      onDragEnter.bind(dropzone),
-      dropzone?.onDragEnter?.bind(dropzone)
-    ),
-    onDragOver: composeEventHandlers(
-      onDragOver.bind(dropzone),
-      dropzone?.onDragOver?.bind(dropzone)
-    ),
-    onDragLeave: composeEventHandlers(
-      onDragLeave.bind(dropzone),
-      dropzone?.onDragLeave?.bind(dropzone)
-    ),
-    onDrop: composeEventHandlers(
-      onDrop.bind(dropzone),
-      dropzone?.onDrop?.bind(dropzone)
-    ),
+    'data-dropzone-id': dropzoneId,
+    onDragEnter: onDragEnter.bind(dropzone),
+    onDragOver: onDragOver.bind(dropzone),
+    onDragLeave: onDragLeave.bind(dropzone),
+    onDrop: onDrop.bind(dropzone),
   };
 }
 

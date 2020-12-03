@@ -107,7 +107,8 @@ export function applyDrop(
   console.log(newLayout);
 
   // Return a new object so React detects a change at the root level.
-  return { ...newLayout };
+  // Always ensure the root weight is 1.
+  return { ...newLayout, weight: 1 };
 }
 
 function insert(
@@ -133,26 +134,25 @@ function insert(
       return null;
     }
     if ('dropRegion' in dropTarget) {
-      // Split the weight across the new group and the item it's being dragged into.
-      const splitWeight = (tabGroup.weight || 1) / 2;
-
+      // TODO: Actually split the weights.
+      const splitWeight = tabGroup.weight || 1;
       const newTabGroup: TileTabGroup = {
         id: uuid(),
         weight: splitWeight,
         type: tile.type as string,
         tabs: [tile as TileTab],
       };
-
       const dropRegion = dropTarget.dropRegion;
       const newItem = {
         ...tabGroup,
         weight: splitWeight,
       };
-
       const newGroup: TileGroupConfig = {
         id: uuid(),
         // TODO: Compute this based on the closest parent's gap?
         gap: 1,
+        // This group is taking the tab group's place so it should have
+        // the same weight.
         weight: tabGroup.weight,
         direction:
           dropRegion === 'left' || dropRegion === 'right' ? 'row' : 'column',
@@ -186,10 +186,9 @@ function insert(
   for (let i = 0; i < group.items.length; i++) {
     const item = group.items[i];
 
-    // Dragging an item into a
     if (item.id === toId && 'dropRegion' in dropTarget) {
-      // Split the weight across the new group and the item it's being dragged into.
-      const splitWeight = (item.weight || 1) / 2;
+      // TODO: Actually split the weights.
+      const splitWeight = item.weight || 1;
 
       const newTabGroup: TileTabGroup = {
         id: uuid(),
