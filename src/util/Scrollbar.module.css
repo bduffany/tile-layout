@@ -1,0 +1,29 @@
+.horizontalScrollbarTrack {
+  position: absolute;
+  bottom: 0;
+  height: var(--scrollbar-width);
+  left: 0;
+  right: var(--scrollbar-width);
+  background: transparent;
+  overflow: hidden;
+}
+
+.horizontalScrollbarThumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+}
+
+.horizontalScrollbarThumb {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+}
+
+.horizontalScrollbarThumb:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.horizontalScrollbarThumb:active {
+  background: rgba(0, 0, 0, 1);
+}

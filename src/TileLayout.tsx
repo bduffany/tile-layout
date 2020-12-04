@@ -23,6 +23,7 @@ import {
   DropzoneState,
 } from './util/dragAndDrop';
 import DebugValue from './util/DebugValue';
+import { HorizontalScrollbar } from './util/Scrollbar';
 
 export type TileRenderer<T extends LayoutItemId = string> = (
   id: T
@@ -471,12 +472,27 @@ class Tab extends React.Component<TabProps, TabState> {
 
   rootRef = React.createRef<HTMLDivElement>();
 
+  onDragOver() {
+    console.log('Tab::onDragOver', this.props.config.id);
+  }
+
   onDrop(e: React.DragEvent) {
     this.context!.handleDrop(e, this);
   }
 
+  onClick() {
+    this.props.parentTile.setState({ activeTabIndex: this.props.index });
+  }
+
   render() {
     const { children, isActive } = this.props;
+
+    console.log(
+      'render',
+      this.props.index,
+      'Dragging over',
+      this.state.isDraggingOver
+    );
 
     return (
       <div
@@ -486,6 +502,7 @@ class Tab extends React.Component<TabProps, TabState> {
           isActive && css.activeTab,
           this.state.isDraggingOver && css.isDraggingOtherTileOver
         )}
+        onClick={this.onClick.bind(this)}
         {...draggable(this)}
         {...dropzone(this)}
       >
@@ -528,7 +545,8 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
             {...draggable(this)}
             {...dropzone(this)}
           >
-            {this.props.children}
+            <div className={css.tabStripTabs}>{this.props.children}</div>
+            <HorizontalScrollbar />
           </div>
         )}
       </TileContext.Consumer>

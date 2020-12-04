@@ -1,4 +1,9 @@
 .tileLayout {
+  --tab-strip-z: 75;
+  --tab-group-z: 50;
+  --tile-border-z: 100;
+  --tile-border-overlay-z: 101;
+
   display: flex;
   flex-direction: column;
 
@@ -43,6 +48,8 @@
 .tileTabGroup {
   display: flex;
   flex-direction: column;
+
+  z-index: var(--tab-group-z);
 }
 
 .tileTabGroup .tile {
@@ -84,6 +91,8 @@
   --tolerance: 8px;
   background: black;
   position: relative;
+
+  z-index: var(--tile-border-z);
 }
 
 .tileBorder::after {
@@ -94,8 +103,8 @@
   left: 0%;
   right: 0%;
   --size: calc(var(--thickness) + 2 * var(--tolerance));
-  /* TODO: Do something more sensible here. */
-  z-index: 1000;
+
+  z-index: var(--tile-border-overlay-z);
 
   transition: transform 200ms ease-out, opacity 200ms ease-out;
 }
@@ -150,13 +159,19 @@
   align-items: stretch;
 
   position: relative;
-  z-index: 1;
+  z-index: var(--tab-strip-z);
+
+  width: 100%;
+  max-width: 100%;
 
   /* TODO: Move these into "default" styles? */
   background: #21252b;
-  gap: 1px;
   min-height: 36px;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.27), 0 3px 5px rgba(0, 0, 0, 0.27);
+}
+
+.tabStripTabs {
+  display: flex;
 }
 
 .tabContainer {
@@ -203,8 +218,4 @@
   right: 0;
   top: 0;
   bottom: 0;
-}
-
-.tileDragHandle {
-  width: 100%;
 }
