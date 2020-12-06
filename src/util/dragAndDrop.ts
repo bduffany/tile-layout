@@ -12,10 +12,28 @@
 import { v4 as uuid } from 'uuid';
 import WeakBiMap from './WeakBiMap';
 
+function hoveredDropzoneElement(e: React.DragEvent) {
+  const [hoveredElement] = document.elementsFromPoint(e.clientX, e.clientY);
+  return closestDropzoneAncestor(hoveredElement as Element);
+}
+
+function hoveredDropzoneComponent(e: React.DragEvent) {
+  return componentDropzoneId.getKey(
+    hoveredDropzoneElement(e)?.dataset['dropzoneId'] || ''
+  );
+}
+
+let draggedComponent: React.Component | null = null;
+
 function onDragStart(
   this: React.Component & DraggableReactCallbacks,
   e: React.DragEvent<any>
 ) {
+  draggedComponent = this;
+  e.target.dispatchEvent(
+    new CustomEvent('dragAndDrop:beginDrag', { bubbles: true })
+  );
+
   e.stopPropagation();
   this.setState({ isDragging: true });
   e.dataTransfer.setData(
@@ -34,11 +52,25 @@ function onDrag(
   if (this.onDrag) {
     this.onDrag(e);
   }
+
+  const hoveredDropzone = hoveredDropzoneComponent(e);
+  if (hoveredDropzone) {
+    onDragOver.call(hoveredDropzone, e);
+  }
 }
 function onDragEnd(
   this: React.Component & DraggableReactCallbacks,
   e: React.DragEvent<any>
 ) {
+  console.debug('onDrop', this, e.nativeEvent);
+
+  if (draggedComponent) {
+    draggedComponent = null;
+    e.target.dispatchEvent(
+      new CustomEvent('dragAndDrop:endDrag', { bubbles: true })
+    );
+  }
+
   this.setState({ isDragging: false });
   e.stopPropagation();
   if (this.onDragEnd) {
@@ -97,6 +129,9 @@ function onDragEnter(
   e: React.DragEvent<any>
 ) {
   e.stopPropagation();
+
+  if (!draggedComponent) return;
+
   this.setState({ isDraggingOver: true });
   if (this.onDragEnter) {
     this.onDragEnter(e);
@@ -109,6 +144,10 @@ function onDragOver(
   // Let it be known that this element is a dropzone.
   e.stopPropagation();
   e.preventDefault();
+
+  if (!draggedComponent) return;
+
+  this.setState({ isDraggingOver: true });
   if (this.onDragOver) {
     this.onDragOver(e);
   }
@@ -117,8 +156,15 @@ function onDrop(
   this: React.Component & DropzoneReactCallbacks,
   e: React.DragEvent<any>
 ) {
-  console.log('onDrop', e.target);
   e.stopPropagation();
+
+  if (!draggedComponent) return;
+
+  draggedComponent = null;
+  e.target.dispatchEvent(
+    new CustomEvent('dragAndDrop:endDrag', { bubbles: true })
+  );
+
   this.setState({ isDraggingOver: false });
   if (this.onDrop) {
     this.onDrop(e);
@@ -129,8 +175,7 @@ function onDragLeave(
   e: React.DragEvent<any>
 ) {
   // Only invoke dragLeave if the drag has actually left the dropzone element.
-  const [hoveredElement] = document.elementsFromPoint(e.clientX, e.clientY);
-  const dropzone = closestDropzoneAncestor(hoveredElement as Element);
+  const dropzone = hoveredDropzoneElement(e);
   if (
     !dropzone ||
     dropzone.dataset['dropzoneId'] !== componentDropzoneId.getValue(this)

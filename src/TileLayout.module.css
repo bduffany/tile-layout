@@ -70,12 +70,14 @@
   pointer-events: none;
 }
 
-.tile::after {
+.draggingDescendant .tabStrip::after,
+.draggingDescendant .tabContainer::after,
+.draggingDescendant .tile::after {
   transition: 200ms ease-out;
 }
 
-.draggingOtherTileOver::after {
-  --movement-duration: 75ms;
+.draggingDescendant .draggingOtherTileOver::after {
+  --movement-duration: 100ms;
 
   transition: opacity 200ms, top var(--movement-duration) ease-out,
     bottom var(--movement-duration) ease-out,
@@ -187,6 +189,8 @@
   position: relative;
 
   z-index: 1;
+
+  transition: color 50ms ease-out;
 }
 
 .tabContainer.activeTab {

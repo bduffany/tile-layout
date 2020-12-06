@@ -1,4 +1,6 @@
 .horizontalScrollbarTrack {
+  --scrollbar-width: 4px;
+
   position: absolute;
   bottom: 0;
   height: var(--scrollbar-width);

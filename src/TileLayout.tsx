@@ -23,7 +23,7 @@ import {
   DropzoneState,
 } from './util/dragAndDrop';
 import DebugValue from './util/DebugValue';
-import { HorizontalScrollbar } from './util/Scrollbar';
+import { eventListener } from './util/dispose';
 
 export type TileRenderer<T extends LayoutItemId = string> = (
   id: T
@@ -57,6 +57,7 @@ const TileLayoutContext = React.createContext<TileLayoutContextValue>(
 
 type TileLayoutState = {
   layout: TileLayoutConfig | null;
+  isDraggingDescendant: boolean;
 };
 
 type DraggableComponent = TabStrip | Tab;
@@ -98,6 +99,9 @@ export default class TileLayout extends React.Component<
 
   tilesById = new Map<LayoutItemId, Tile>();
 
+  private disposeFns: Function[] = [];
+  private rootRef = React.createRef<HTMLDivElement>();
+
   constructor(props: TileLayoutProps) {
     super(props);
     this.state = {
@@ -105,15 +109,23 @@ export default class TileLayout extends React.Component<
         ...props.layout,
         id: props.layout.id || uuid(),
       },
+      isDraggingDescendant: false,
     };
   }
 
-  registerTile(tile: Tile) {
-    this.tilesById.set(tile.props.config.id as LayoutItemId, tile);
-  }
-
-  unregisterTile(tile: Tile) {
-    this.tilesById.delete(tile.props.config.id as LayoutItemId);
+  componentDidMount() {
+    this.disposeFns.push(
+      eventListener(
+        this.rootRef.current!,
+        'dragAndDrop:beginDrag',
+        this.onDescendantDragStart.bind(this)
+      ),
+      eventListener(
+        this.rootRef.current!,
+        'dragAndDrop:endDrag',
+        this.onDescendantDragEnd.bind(this)
+      )
+    );
   }
 
   componentDidUpdate(prevProps: TileLayoutProps) {
@@ -124,6 +136,24 @@ export default class TileLayout extends React.Component<
           ' Use a global constant, `useMemo`, or a readonly instance field to avoid changing the value of this prop.'
       );
     }
+  }
+
+  private onDescendantDragStart() {
+    console.log('onDescendantDragStart');
+    this.setState({ isDraggingDescendant: true });
+  }
+
+  private onDescendantDragEnd() {
+    console.log('onDescendantDragEnd');
+    this.setState({ isDraggingDescendant: false });
+  }
+
+  registerTile(tile: Tile) {
+    this.tilesById.set(tile.props.config.id as LayoutItemId, tile);
+  }
+
+  unregisterTile(tile: Tile) {
+    this.tilesById.delete(tile.props.config.id as LayoutItemId);
   }
 
   handleDrop(e: React.DragEvent, to: IDropzoneComponent) {
@@ -170,6 +200,33 @@ export default class TileLayout extends React.Component<
     const layout = applyDrop(this.state.layout, fromId, toId, dropTarget);
 
     this.setState({ layout });
+
+    setTimeout(() => {
+      this.focusTab(fromId);
+    });
+  }
+
+  private focusTab(id: LayoutItemId) {
+    const parent = this.parentTileOf(id);
+    if (!parent) {
+      console.warn(`Could not find parent tile of tile ${id}`);
+      return;
+    }
+    parent.focusChildTab(id);
+  }
+
+  private parentTileOf(id: LayoutItemId) {
+    for (const tile of Array.from(this.tilesById.values())) {
+      if (isTabGroup(tile.props.config)) {
+        // tile.props.config.tabs.some((tab) => tab.id === id)
+        for (const tab of tile.props.config.tabs) {
+          if (tab.id === id) {
+            return tile;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   render() {
@@ -177,10 +234,22 @@ export default class TileLayout extends React.Component<
       // TODO: Think about how to handle empty layouts
       return <></>;
     }
+
+    console.log(
+      'draggingDescendantClass:',
+      this.state.isDraggingDescendant && css.draggingDescendant
+    );
+
     return (
       <TileLayoutContext.Provider value={this}>
         <DebugValue label="layout" value={this.state.layout} />
-        <div className={classNames(css.tileLayout)}>
+        <div
+          className={classNames(
+            css.tileLayout,
+            this.state.isDraggingDescendant && css.draggingDescendant
+          )}
+          ref={this.rootRef}
+        >
           <Tile config={this.state.layout} />
         </div>
       </TileLayoutContext.Provider>
@@ -193,12 +262,6 @@ type TileProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
   config: TileConfig | TileGroupConfig;
   parent?: Tile;
 };
-
-type TileContextValue = Tile;
-
-const TileContext = React.createContext<TileContextValue>(
-  (null as unknown) as any
-);
 
 const DROP_REGION_CLASSES: Record<DropRegion, string> = {
   cover: '',
@@ -227,6 +290,40 @@ class Tile extends React.Component<TileProps, TileState> {
 
   private borderDragController = new DragController();
 
+  componentDidMount() {
+    this.context.registerTile(this);
+  }
+
+  componentDidUpdate() {
+    if (
+      isTabGroup(this.props.config) &&
+      (this.state.activeTabIndex || 0) >= this.props.config.tabs.length
+    ) {
+      this.setState({ activeTabIndex: this.props.config.tabs.length - 1 });
+    }
+  }
+
+  componentWillUnmount() {
+    this.context.unregisterTile(this);
+    this.borderDragController.dispose();
+  }
+
+  focusChildTab(id: LayoutItemId) {
+    const config = this.props.config;
+    if (!isTabGroup(config)) {
+      throw new Error(
+        'Cannot focus a child tab of a Tile that is not a tab group'
+      );
+    }
+    for (let i = 0; i < config.tabs.length; i++) {
+      if (config.tabs[i].id === id) {
+        this.setState({ activeTabIndex: i });
+        return;
+      }
+    }
+    throw new Error(`Tab ${id} not found in this tab group.`);
+  }
+
   onDragOver(e: React.DragEvent) {
     const dropRegion = getDropRegion(
       this.rootRef.current!.getBoundingClientRect(),
@@ -240,15 +337,6 @@ class Tile extends React.Component<TileProps, TileState> {
 
   onDrop(e: React.DragEvent) {
     this.context!.handleDrop(e, this);
-  }
-
-  componentDidMount() {
-    this.context.registerTile(this);
-  }
-
-  componentWillUnmount() {
-    this.context.unregisterTile(this);
-    this.borderDragController.dispose();
   }
 
   private lengthsAtDragStartPx = { a: 0, b: 0 };
@@ -369,7 +457,10 @@ class Tile extends React.Component<TileProps, TileState> {
               );
             }
 
-            const activeTabIndex = this.state.activeTabIndex || 0;
+            let activeTabIndex = this.state.activeTabIndex || 0;
+            if (activeTabIndex >= config.tabs.length) {
+              activeTabIndex = config.tabs.length - 1;
+            }
             const tab = config.tabs[activeTabIndex];
 
             const renderers = layout.props.tileRenderers;
@@ -377,14 +468,13 @@ class Tile extends React.Component<TileProps, TileState> {
             const content = renderer(tab.id as any);
 
             return (
-              <TileContext.Provider value={this}>
+              <>
                 <div
                   ref={this.rootRef}
                   className={classNames(css.tileTabGroup, ...classes)}
                   style={style}
-                  {...dropzone(this)}
                 >
-                  {/* TODO: Render custom tab strip here instead */}
+                  {/* TODO: Render custom tab strip here instead? */}
                   {/* TODO: Handle vertical vs. horizontal orientation */}
                   <TabStrip className={css.tabStrip} config={config}>
                     {config.tabs.map((tab, i) => {
@@ -411,11 +501,12 @@ class Tile extends React.Component<TileProps, TileState> {
                       this.state.dropRegionClass,
                       this.state.isDraggingOver && css.draggingOtherTileOver
                     )}
+                    {...dropzone(this)}
                   >
                     {content}
                   </div>
                 </div>
-              </TileContext.Provider>
+              </>
             );
           }}
         </TileLayoutContext.Consumer>
@@ -431,23 +522,22 @@ class Tile extends React.Component<TileProps, TileState> {
           const renderers = layout.props.tileRenderers;
           const renderer = renderers[tile.type as string].bind(renderers);
           const content = renderer(tile.id as any);
+
           if (!content) return null;
 
           return (
-            <TileContext.Provider value={this}>
-              <div
-                ref={this.rootRef}
-                className={classNames(
-                  css.tile,
-                  this.state.dropRegionClass,
-                  this.state.isDraggingOver && css.draggingOtherTileOver
-                )}
-                style={style}
-                {...dropzone(this)}
-              >
-                {content}
-              </div>
-            </TileContext.Provider>
+            <div
+              ref={this.rootRef}
+              className={classNames(
+                css.tile,
+                this.state.dropRegionClass,
+                this.state.isDraggingOver && css.draggingOtherTileOver
+              )}
+              style={style}
+              {...dropzone(this)}
+            >
+              {content}
+            </div>
           );
         }}
       </TileLayoutContext.Consumer>
@@ -464,6 +554,13 @@ type TabProps = {
 
 type TabState = DraggableState & DropzoneState;
 
+type TabContextValue = Tab;
+
+// TODO: Don't export. Not needed yet, until we allow closing tiles.
+export const TabContext = React.createContext<TabContextValue>(
+  (null as unknown) as any
+);
+
 class Tab extends React.Component<TabProps, TabState> {
   state: TabState = {};
 
@@ -471,10 +568,6 @@ class Tab extends React.Component<TabProps, TabState> {
   context!: React.ContextType<typeof TileLayoutContext>;
 
   rootRef = React.createRef<HTMLDivElement>();
-
-  onDragOver() {
-    console.log('Tab::onDragOver', this.props.config.id);
-  }
 
   onDrop(e: React.DragEvent) {
     this.context!.handleDrop(e, this);
@@ -487,20 +580,13 @@ class Tab extends React.Component<TabProps, TabState> {
   render() {
     const { children, isActive } = this.props;
 
-    console.log(
-      'render',
-      this.props.index,
-      'Dragging over',
-      this.state.isDraggingOver
-    );
-
     return (
       <div
         ref={this.rootRef}
         className={classNames(
           css.tabContainer,
           isActive && css.activeTab,
-          this.state.isDraggingOver && css.isDraggingOtherTileOver
+          this.state.isDraggingOver && css.draggingOtherTileOver
         )}
         onClick={this.onClick.bind(this)}
         {...draggable(this)}
@@ -533,23 +619,19 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
 
   render() {
     return (
-      <TileContext.Consumer>
-        {(tile) => (
-          <div
-            ref={this.rootRef}
-            className={classNames(
-              css.tileDragHandle,
-              this.state.isDraggingOver && css.draggingOtherTileOver,
-              this.props.className
-            )}
-            {...draggable(this)}
-            {...dropzone(this)}
-          >
-            <div className={css.tabStripTabs}>{this.props.children}</div>
-            <HorizontalScrollbar />
-          </div>
+      <div
+        ref={this.rootRef}
+        className={classNames(
+          css.tileDragHandle,
+          this.state.isDraggingOver && css.draggingOtherTileOver,
+          this.props.className
         )}
-      </TileContext.Consumer>
+        // {...draggable(this)}
+        {...dropzone(this)}
+      >
+        <div className={css.tabStripTabs}>{this.props.children}</div>
+        {/* <HorizontalScrollbar /> */}
+      </div>
     );
   }
 }
