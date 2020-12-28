@@ -26,7 +26,24 @@ export type TileGroupConfig = LayoutItem & {
   items: (TileGroupConfig | TileConfig)[];
 };
 
-export type TileTab = {
+export type ContainerType = 'tile' | 'tab';
+
+export type ContentContainerId = {
+  type: string;
+  container: ContainerType;
+  id: LayoutItemId;
+};
+
+export function contentContainerIdKey({
+  type,
+  container,
+  id,
+}: ContentContainerId) {
+  if (!type || !container || !id) return null;
+  return JSON.stringify([type, container, id]);
+}
+
+export type TileTabConfig = {
   id: LayoutItemId;
   type: string;
 };
@@ -42,15 +59,15 @@ export type TileConfig = LayoutItem & {
   // TODO: Rename `type` to something like `rendererKey` or `componentName`?
   type?: string;
 
-  tabs?: TileTab[];
+  tabs?: TileTabConfig[];
   tabStripPosition?: TabStripPosition;
 };
 
-export type TileTabGroup = LayoutItem & {
+export type TileTabGroupConfig = LayoutItem & {
   // TODO: Decide whether this "type" is needed
   type: string;
 
-  tabs: TileTab[];
+  tabs: TileTabConfig[];
 };
 
 export type DropTarget =
@@ -70,7 +87,7 @@ export function isGroup(
 
 export function isTabGroup(
   item: TileConfig | TileGroupConfig
-): item is TileTabGroup {
+): item is TileTabGroupConfig {
   return 'tabs' in item;
 }
 
@@ -111,6 +128,40 @@ export function applyDrop(
   return { ...newLayout, weight: 1 };
 }
 
+export function getContentContainerIds(
+  layout: TileLayoutConfig
+): ContentContainerId[] {
+  return populateContentContainerIds(layout, []);
+}
+
+function populateContentContainerIds(
+  config: TileGroupConfig | TileConfig | TileTabGroupConfig,
+  acc: ContentContainerId[]
+): ContentContainerId[] {
+  if (isGroup(config)) {
+    for (const item of config.items) {
+      populateContentContainerIds(item, acc);
+    }
+    return acc;
+  }
+  if (isTabGroup(config)) {
+    for (const tab of config.tabs) {
+      const { type, id } = tab;
+      acc.push({ container: 'tab', type, id }, { container: 'tile', type, id });
+    }
+    return acc;
+  }
+
+  const tile = config as TileConfig;
+  acc.push({
+    container: 'tile',
+    type: tile.type as string,
+    id: tile.id as LayoutItemId,
+  });
+
+  return acc;
+}
+
 function insert(
   tile: TileConfig,
   toId: LayoutItemId,
@@ -136,11 +187,11 @@ function insert(
     if ('dropRegion' in dropTarget) {
       // TODO: Actually split the weights.
       const splitWeight = tabGroup.weight || 1;
-      const newTabGroup: TileTabGroup = {
+      const newTabGroup: TileTabGroupConfig = {
         id: uuid(),
         weight: splitWeight,
         type: tile.type as string,
-        tabs: [tile as TileTab],
+        tabs: [tile as TileTabConfig],
       };
       const dropRegion = dropTarget.dropRegion;
       const newItem = {
@@ -169,7 +220,7 @@ function insert(
       tabIndex += tabGroup.tabs.length + 1;
     }
     const newTabs = [...tabGroup.tabs];
-    const tab: TileTab = {
+    const tab: TileTabConfig = {
       id: tile.id as LayoutItemId,
       type: tile.type as string,
     };
@@ -190,11 +241,11 @@ function insert(
       // TODO: Actually split the weights.
       const splitWeight = item.weight || 1;
 
-      const newTabGroup: TileTabGroup = {
+      const newTabGroup: TileTabGroupConfig = {
         id: uuid(),
         weight: splitWeight,
         type: tile.type as string,
-        tabs: [tile as TileTab],
+        tabs: [tile as TileTabConfig],
       };
 
       const dropRegion = dropTarget.dropRegion;

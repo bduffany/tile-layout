@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useContext, useRef } from 'react';
+import { Inlet, Outlet } from './reparent';
 import {
   applyDrop,
+  contentContainerIdKey,
   DropTarget,
+  getContentContainerIds,
   isGroup,
   isTabGroup,
   LayoutItemId,
   TileConfig,
   TileGroupConfig,
   TileLayoutConfig,
-  TileTabGroup,
+  TileTabGroupConfig,
 } from './layout';
 import css from './TileLayout.module.css';
 import { DropRegion, getDropRegion } from './util/geometry';
@@ -24,10 +27,12 @@ import {
 } from './util/dragAndDrop';
 import DebugValue from './util/DebugValue';
 import { eventListener } from './util/dispose';
+import { HorizontalScrollbar } from './util/Scrollbar';
+import { ContentHost, ContentOutlet } from './content';
 
 export type TileRenderer<T extends LayoutItemId = string> = (
   id: T
-) => React.ReactChild;
+) => React.ReactNode;
 
 export type TileRenderers<T extends LayoutItemId = string> = Record<
   string,
@@ -36,7 +41,7 @@ export type TileRenderers<T extends LayoutItemId = string> = Record<
 
 export type TabRenderer<T extends LayoutItemId = string> = (
   id: T
-) => React.ReactChild;
+) => React.ReactNode;
 
 export type TabRenderers<T extends LayoutItemId = string> = Record<
   string,
@@ -51,7 +56,7 @@ export type TileLayoutProps = JSX.IntrinsicElements['div'] & {
 
 type TileLayoutContextValue = TileLayout;
 
-const TileLayoutContext = React.createContext<TileLayoutContextValue>(
+export const TileLayoutContext = React.createContext<TileLayoutContextValue>(
   (null as unknown) as TileLayoutContextValue
 );
 
@@ -65,7 +70,7 @@ type IDropzoneComponent = TabStrip | Tab | Tile;
 
 /**
  * <code>TileLayout</code> renders content as draggable tiles, similar to the
- * layout of a modern IDE.
+ * layout of VS Code.
  *
  * **Concepts**
  *
@@ -135,6 +140,12 @@ export default class TileLayout extends React.Component<
         'TileLayout `renderers` prop changed. TileLayout does not currently support changing the renderer configuration.' +
           ' Use a global constant, `useMemo`, or a readonly instance field to avoid changing the value of this prop.'
       );
+    }
+  }
+
+  componentWillUnmount() {
+    for (const dispose of this.disposeFns) {
+      dispose();
     }
   }
 
@@ -240,8 +251,21 @@ export default class TileLayout extends React.Component<
       this.state.isDraggingDescendant && css.draggingDescendant
     );
 
+    const { tileRenderers, tabRenderers } = this.props;
+
     return (
       <TileLayoutContext.Provider value={this}>
+        {/* TODO: Better memory management. Only render visible content on the first render.
+            Then render contents as they are requested, e.g. by clicking a tab. (?) */}
+        {getContentContainerIds(this.props.layout).map((containerId) => (
+          <ContentHost
+            key={contentContainerIdKey(containerId)}
+            renderers={
+              containerId.container === 'tab' ? tabRenderers! : tileRenderers
+            }
+            {...containerId}
+          />
+        ))}
         <DebugValue label="layout" value={this.state.layout} />
         <div
           className={classNames(
@@ -450,8 +474,10 @@ class Tile extends React.Component<TileProps, TileState> {
       return (
         <TileLayoutContext.Consumer>
           {(layout) => {
-            const tabRenderers = layout.props.tabRenderers;
-            if (process.env.NODE_ENV === 'development' && !tabRenderers) {
+            if (
+              process.env.NODE_ENV === 'development' &&
+              !layout.props.tabRenderers
+            ) {
               throw new Error(
                 'Attempted to render tabs without providing `tabRenderers`.'
               );
@@ -462,10 +488,6 @@ class Tile extends React.Component<TileProps, TileState> {
               activeTabIndex = config.tabs.length - 1;
             }
             const tab = config.tabs[activeTabIndex];
-
-            const renderers = layout.props.tileRenderers;
-            const renderer = renderers[tab.type].bind(renderers);
-            const content = renderer(tab.id as any);
 
             return (
               <>
@@ -478,10 +500,6 @@ class Tile extends React.Component<TileProps, TileState> {
                   {/* TODO: Handle vertical vs. horizontal orientation */}
                   <TabStrip className={css.tabStrip} config={config}>
                     {config.tabs.map((tab, i) => {
-                      const tabRenderer = tabRenderers![tab.type].bind(
-                        tabRenderers
-                      );
-
                       return (
                         <Tab
                           key={tab.id}
@@ -490,7 +508,12 @@ class Tile extends React.Component<TileProps, TileState> {
                           index={i}
                           isActive={i === activeTabIndex}
                         >
-                          {tabRenderer(tab.id as any)}
+                          <ContentOutlet
+                            key={tab.id}
+                            container="tab"
+                            type={tab.type}
+                            id={tab.id}
+                          />
                         </Tab>
                       );
                     })}
@@ -503,7 +526,12 @@ class Tile extends React.Component<TileProps, TileState> {
                     )}
                     {...dropzone(this)}
                   >
-                    {content}
+                    <ContentOutlet
+                      key={tab.id}
+                      container="tile"
+                      type={tab.type}
+                      id={tab.id}
+                    />
                   </div>
                 </div>
               </>
@@ -513,7 +541,9 @@ class Tile extends React.Component<TileProps, TileState> {
       );
     }
 
-    // TODO: Make sure this works
+    // Render tile directly (no tabs).
+    // TODO: Either delete this or make sure it works.
+    // No tests for this currently.
 
     const tile = this.props.config as TileConfig;
     return (
@@ -536,7 +566,11 @@ class Tile extends React.Component<TileProps, TileState> {
               style={style}
               {...dropzone(this)}
             >
-              {content}
+              <ContentOutlet
+                container="tile"
+                type={tile.type as string}
+                id={tile.id as LayoutItemId}
+              />
             </div>
           );
         }}
@@ -556,7 +590,6 @@ type TabState = DraggableState & DropzoneState;
 
 type TabContextValue = Tab;
 
-// TODO: Don't export. Not needed yet, until we allow closing tiles.
 export const TabContext = React.createContext<TabContextValue>(
   (null as unknown) as any
 );
@@ -598,9 +631,9 @@ class Tab extends React.Component<TabProps, TabState> {
   }
 }
 
-// Omitting "id" to avoid confusion with `config.id`.
+// Omitting "id" to avoid confusion with `props.config.id`.
 type TabStripProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
-  config: TileTabGroup;
+  config: TileTabGroupConfig;
 };
 
 type TabStripState = DraggableState & DropzoneState;
@@ -630,7 +663,7 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
         {...dropzone(this)}
       >
         <div className={css.tabStripTabs}>{this.props.children}</div>
-        {/* <HorizontalScrollbar /> */}
+        <HorizontalScrollbar />
       </div>
     );
   }

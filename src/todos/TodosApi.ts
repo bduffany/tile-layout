@@ -11,7 +11,7 @@ type TodoList = {
 };
 
 export default interface TodosApi {
-  getTodoList(id: string): Promise<TodoList | null>;
+  getTodoList(id: string): TodoList | null;
 }
 
 export class FakeTodosApi implements TodosApi {
@@ -58,7 +58,7 @@ export class FakeTodosApi implements TodosApi {
     },
   };
 
-  async getTodoList(id: string): Promise<TodoList | null> {
+  getTodoList(id: string): TodoList | null {
     return FakeTodosApi.data[id] || null;
   }
 }

@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { TabContext } from '../TileLayout';
 import useAsync from '../util/useAsync';
 import css from './Todo.module.css';
@@ -8,18 +8,27 @@ type TodoProps = {
   id: string;
 };
 
+// TODO: Encapsulate tab and content into a class
+// so data doesn't need to be fetched twice for each
+// content ID.
+
+const useRenderCount = function () {
+  const renderCount = React.useRef(0);
+  renderCount.current++;
+  return renderCount.current;
+};
+
 export default function Todo({ id }: TodoProps) {
+  // TODO: Make this async
   const todosApi = useContext(TodosApiContext);
+  const todoList = todosApi.getTodoList(id)!;
 
-  const fetchTodo = useMemo(() => () => todosApi.getTodoList(id), [
-    todosApi,
-    id,
+  const renderCount = useRenderCount();
+  const [numClicks, setNumClicks] = useState(0);
+
+  const onButtonClick = useCallback(() => setNumClicks((n) => n + 1), [
+    setNumClicks,
   ]);
-
-  const { pending: loading, value: todoList, error } = useAsync(fetchTodo);
-
-  if (error) throw error;
-  if (loading || !todoList) return <>Loading TODOs...</>;
 
   return (
     <div className={css.todoListPane}>
@@ -29,6 +38,8 @@ export default function Todo({ id }: TodoProps) {
             <li key={id}>{content}</li>
           ))}
         </ul>
+        <div style={{ fontSize: 12 }}>Rendered {renderCount} times.</div>
+        <button onClick={onButtonClick}>Clicked {numClicks} times.</button>
       </div>
     </div>
   );
@@ -37,17 +48,9 @@ export default function Todo({ id }: TodoProps) {
 type TodoTabProps = { id: string };
 
 export function TodoTab({ id }: TodoTabProps) {
+  // TODO: Make this async
   const todosApi = useContext(TodosApiContext);
-
-  const fetchTodo = useMemo(() => () => todosApi.getTodoList(id), [
-    todosApi,
-    id,
-  ]);
-
-  const { pending: loading, value: todoList, error } = useAsync(fetchTodo);
-
-  if (error) throw error;
-  if (loading || !todoList) return <>...</>;
+  const todoList = todosApi.getTodoList(id)!;
 
   return <div className={css.todoTab}>{todoList.title}</div>;
 }
