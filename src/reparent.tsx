@@ -50,7 +50,7 @@ type OutletProps<T> = Omit<JSX.IntrinsicElements['div'], 'id'> & {
   id?: T | null;
 };
 
-export const Outlet = function <T>({ id, onClick, ...props }: OutletProps<T>) {
+export const Outlet = function <T>({ id, ...props }: OutletProps<T>) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!containerRef.current || !id) return;

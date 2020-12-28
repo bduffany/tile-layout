@@ -1,5 +1,4 @@
-import React, { useContext, useRef } from 'react';
-import { Inlet, Outlet } from './reparent';
+import React from 'react';
 import {
   applyDrop,
   contentContainerIdKey,
@@ -21,12 +20,14 @@ import { classNames } from './util/dom';
 import {
   draggable,
   DraggableState,
+  dragListeners,
+  dropListeners,
   droppedComponent,
   dropzone,
   DropzoneState,
 } from './util/dragAndDrop';
 import DebugValue from './util/DebugValue';
-import { eventListener } from './util/dispose';
+import { disposeAll, DisposeFns, eventListener } from './util/dispose';
 import { HorizontalScrollbar } from './util/Scrollbar';
 import { ContentHost, ContentOutlet } from './content';
 
@@ -313,9 +314,13 @@ class Tile extends React.Component<TileProps, TileState> {
   rootRef = React.createRef<HTMLDivElement>();
 
   private borderDragController = new DragController();
+  private disposers: DisposeFns = [];
 
   componentDidMount() {
     this.context.registerTile(this);
+    if (this.rootRef.current) {
+      this.disposers.push(...dropListeners(this, this.rootRef.current!));
+    }
   }
 
   componentDidUpdate() {
@@ -330,6 +335,7 @@ class Tile extends React.Component<TileProps, TileState> {
   componentWillUnmount() {
     this.context.unregisterTile(this);
     this.borderDragController.dispose();
+    disposeAll(this.disposers);
   }
 
   focusChildTab(id: LayoutItemId) {
@@ -602,11 +608,28 @@ class Tab extends React.Component<TabProps, TabState> {
 
   rootRef = React.createRef<HTMLDivElement>();
 
+  private disposers: DisposeFns = [];
+
+  componentDidMount() {
+    // Using native event listeners instead of React synthetic events because
+    // React doesn't bubble synthetic events that occur within the user-rendered
+    // tab, which is not part of the component subtree.
+    this.disposers.push(
+      eventListener(this.rootRef.current!, 'click', this.onClick.bind(this)),
+      ...dragListeners(this, this.rootRef.current!),
+      ...dropListeners(this, this.rootRef.current!)
+    );
+  }
+
+  componentWillUnmount() {
+    disposeAll(this.disposers);
+  }
+
   onDrop(e: React.DragEvent) {
     this.context!.handleDrop(e, this);
   }
 
-  onClick() {
+  private onClick() {
     this.props.parentTile.setState({ activeTabIndex: this.props.index });
   }
 
@@ -621,7 +644,6 @@ class Tab extends React.Component<TabProps, TabState> {
           isActive && css.activeTab,
           this.state.isDraggingOver && css.draggingOtherTileOver
         )}
-        onClick={this.onClick.bind(this)}
         {...draggable(this)}
         {...dropzone(this)}
       >
@@ -645,6 +667,15 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
   state: TabStripState = {};
 
   rootRef = React.createRef<HTMLDivElement>();
+  private disposers: DisposeFns = [];
+
+  componentDidMount() {
+    this.disposers.push(...dropListeners(this, this.rootRef.current!));
+  }
+
+  componentWillUnmount() {
+    disposeAll(this.disposers);
+  }
 
   onDrop(e: React.DragEvent) {
     this.context!.handleDrop(e, this);

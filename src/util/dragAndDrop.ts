@@ -10,6 +10,7 @@
  */
 
 import { v4 as uuid } from 'uuid';
+import { eventListener } from './dispose';
 import WeakBiMap from './WeakBiMap';
 
 function hoveredDropzoneElement(e: React.DragEvent) {
@@ -105,10 +106,18 @@ export function draggable(
   return {
     draggable: true,
     'data-draggable-id': draggableId,
-    onDragStart: onDragStart.bind(draggable),
-    onDrag: onDrag.bind(draggable),
-    onDragEnd: onDragEnd.bind(draggable),
   };
+}
+
+export function dragListeners(
+  draggable: React.Component & DraggableReactCallbacks,
+  el: HTMLElement
+) {
+  return [
+    eventListener(el, 'dragstart', onDragStart.bind(draggable)),
+    eventListener(el, 'drag', onDrag.bind(draggable)),
+    eventListener(el, 'dragend', onDragEnd.bind(draggable)),
+  ];
 }
 
 function closestAncestorMatching(
@@ -207,11 +216,19 @@ export function dropzone(dropzone: React.Component & DropzoneReactCallbacks) {
 
   return {
     'data-dropzone-id': dropzoneId,
-    onDragEnter: onDragEnter.bind(dropzone),
-    onDragOver: onDragOver.bind(dropzone),
-    onDragLeave: onDragLeave.bind(dropzone),
-    onDrop: onDrop.bind(dropzone),
   };
+}
+
+export function dropListeners(
+  dropzone: React.Component & DropzoneReactCallbacks,
+  el: Element
+) {
+  return [
+    eventListener(el, 'dragenter', onDragEnter.bind(dropzone)),
+    eventListener(el, 'dragover', onDragOver.bind(dropzone)),
+    eventListener(el, 'dragleave', onDragLeave.bind(dropzone)),
+    eventListener(el, 'drop', onDrop.bind(dropzone)),
+  ];
 }
 
 /**
