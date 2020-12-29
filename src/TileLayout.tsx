@@ -420,6 +420,10 @@ class Tile extends React.Component<TileProps, TileState> {
     const tileB = this.context.tilesById.get(b.id!)!;
     tileA.rootRef.current!.style.flexGrow = String(a.weight);
     tileB.rootRef.current!.style.flexGrow = String(b.weight);
+
+    this.rootRef.current!.dispatchEvent(
+      new CustomEvent('TileLayout:dragBorder', { bubbles: true })
+    );
   }
 
   render() {
@@ -504,7 +508,7 @@ class Tile extends React.Component<TileProps, TileState> {
                 >
                   {/* TODO: Render custom tab strip here instead? */}
                   {/* TODO: Handle vertical vs. horizontal orientation */}
-                  <TabStrip className={css.tabStrip} config={config}>
+                  <TabStrip config={config}>
                     {config.tabs.map((tab, i) => {
                       return (
                         <Tab
@@ -667,10 +671,26 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
   state: TabStripState = {};
 
   rootRef = React.createRef<HTMLDivElement>();
+  scrollingElementRef = React.createRef<HTMLDivElement>();
   private disposers: DisposeFns = [];
+
+  private scrollbarRef = React.createRef<HorizontalScrollbar>();
 
   componentDidMount() {
     this.disposers.push(...dropListeners(this, this.rootRef.current!));
+    this.scrollbarRef.current!.setScrollingElement(
+      this.scrollingElementRef.current!
+    );
+    this.scrollbarRef.current!.update();
+    // TODO: See if we can remove this. It (hackily) solves the problem
+    // that the scrollbar isn't rendered correctly on the first render.
+    setTimeout(() => {
+      this.scrollbarRef.current!.update();
+    });
+  }
+
+  componentDidUpdate() {
+    this.scrollbarRef.current!.update();
   }
 
   componentWillUnmount() {
@@ -686,15 +706,20 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
       <div
         ref={this.rootRef}
         className={classNames(
+          css.tabStrip,
           css.tileDragHandle,
           this.state.isDraggingOver && css.draggingOtherTileOver,
           this.props.className
         )}
+        // TODO: Allow dragging tab strips, which should drag all tabs at once,
+        // like in VS Code.
         // {...draggable(this)}
         {...dropzone(this)}
       >
-        <div className={css.tabStripTabs}>{this.props.children}</div>
-        <HorizontalScrollbar />
+        <div className={css.tabStripTabs} ref={this.scrollingElementRef}>
+          {this.props.children}
+        </div>
+        <HorizontalScrollbar ref={this.scrollbarRef} />
       </div>
     );
   }

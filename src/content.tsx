@@ -1,10 +1,5 @@
 import * as React from 'react';
-import {
-  ContainerType,
-  ContentContainerId,
-  contentContainerIdKey,
-  LayoutItemId,
-} from './layout';
+import { ContentContainerId, contentContainerIdKey } from './layout';
 import { Inlet, Outlet } from './reparent';
 import { TabRenderers, TileRenderers } from './TileLayout';
 
@@ -18,7 +13,6 @@ export class ContentHost<
   render() {
     const { renderers, type, container, id } = this.props;
 
-    console.log('Rendered ContentHost:', renderers, type, id);
     const renderer = renderers[type].bind(renderers);
     return (
       <Inlet

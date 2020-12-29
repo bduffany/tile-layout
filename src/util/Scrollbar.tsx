@@ -1,5 +1,7 @@
 import React from 'react';
 import { v4 as uuid } from 'uuid';
+import { AnimatedValue } from './AnimatedValue';
+import { AnimationLoop } from './AnimationLoop';
 import { eventListener } from './dispose';
 import css from './Scrollbar.module.css';
 
@@ -15,12 +17,18 @@ export type HorizontalScrollbarProps = {
 const preventDefaultOnDrag = (e: React.DragEvent<HTMLDivElement>) =>
   e.preventDefault();
 
+function computeScrollBoundsFrom(el: HTMLElement) {
+  return {
+    scrollLeft: el!.scrollLeft,
+    scrollLeftMax: Math.max(0, el!.scrollWidth - el!.clientWidth),
+  };
+}
+
 export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProps> {
+  private scrollingElement: HTMLElement | null = null;
   private track: HTMLDivElement | null = null;
   private thumb: HTMLDivElement | null = null;
 
-  private scrollLeft = 0;
-  private scrollLeftMax = 0;
   private thumbWidth = 0;
   private scrollableWidth = 0;
   private thumbX = 0;
@@ -28,6 +36,9 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
   private minMouseX = 0;
   private maxMouseX = 0;
   private mouseX = 0;
+
+  private animationLoop = new AnimationLoop(this.draw.bind(this));
+  private scrollLeft = new AnimatedValue(0, { min: 0, max: 1 });
 
   // Single scroll event here avoids creating too many objects.
   private scrollEvent: ScrollEvent = { delta: 0, animate: false };
@@ -44,6 +55,7 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
     if (!scrollingElement.id) {
       scrollingElement.id = uuid();
     }
+    this.scrollingElement = scrollingElement;
     this.thumb!.setAttribute('aria-controls', scrollingElement.id);
 
     this.disposeFns.push(
@@ -62,31 +74,64 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
         'wheel',
         this.onWheelScrollingElement.bind(this)
       ),
+      eventListener(window, 'resize', this.onWindowResize.bind(this)),
       eventListener(window, 'mousemove', this.onWindowMouseMove.bind(this)),
       eventListener(window, 'mouseup', this.onWindowMouseUp.bind(this)),
-      eventListener(window, 'keydown', this.onWindowKeyDown.bind(this))
+      eventListener(window, 'keydown', this.onWindowKeyDown.bind(this)),
+      // TODO: only listen to relevant borders
+      eventListener(
+        window,
+        'TileLayout:dragBorder',
+        this.onResizeAnyTile.bind(this)
+      )
     );
+
+    this.animationLoop.start();
   }
 
-  public update({
-    scrollLeft,
-    scrollLeftMax,
-  }: {
-    scrollLeft: number;
-    scrollLeftMax: number;
-  }) {
+  private onWindowResize() {
+    this.update();
+  }
+
+  private onResizeAnyTile() {
+    this.update();
+  }
+
+  private setVisible(visible: boolean) {
+    this.thumb!.classList.toggle(css.fadeOut, !visible);
+  }
+
+  private draw(dt: number) {
+    console.log('draw');
+
+    this.scrollLeft.step(dt);
+    if (this.scrollingElement) {
+      this.scrollingElement.scrollLeft = this.scrollLeft.value;
+    }
+    if (this.scrollLeft.isAtTarget) {
+      this.animationLoop.stop();
+
+      console.log('at target; stopped');
+    } else {
+      this.setVisible(true);
+    }
+
     if (!this.track) return;
 
-    this.scrollLeft = scrollLeft;
-    this.scrollLeftMax = scrollLeftMax;
+    if (this.scrollLeft.max <= 0) {
+      this.track.setAttribute('hidden', '');
+    } else {
+      this.track.removeAttribute('hidden');
+    }
+
     const trackClientWidth = this.track.clientWidth;
-    this.scrollableWidth = this.scrollLeftMax + trackClientWidth;
+    this.scrollableWidth = this.scrollLeft.max + trackClientWidth;
     this.thumbWidth =
       (trackClientWidth / this.scrollableWidth) * trackClientWidth;
     this.thumbX =
-      scrollLeftMax === 0
+      this.scrollLeft.max === 0
         ? 0
-        : (this.scrollLeft / this.scrollLeftMax) *
+        : (this.scrollLeft.value / this.scrollLeft.max) *
           (trackClientWidth - this.thumbWidth);
 
     this.thumb!.style.left = `${this.thumbX}px`;
@@ -102,6 +147,27 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
         )
       )
     );
+  }
+
+  public update(values?: { scrollLeft: number; scrollLeftMax: number }) {
+    if (!this.track) return;
+
+    if (!values) {
+      if (this.scrollingElement) {
+        values = computeScrollBoundsFrom(this.scrollingElement);
+      } else {
+        return;
+      }
+    }
+
+    const { scrollLeft, scrollLeftMax } = values;
+    this.scrollLeft.max = scrollLeftMax;
+    this.scrollLeft.target = scrollLeft;
+    this.animationLoop.start();
+  }
+
+  public setScrollingElement(el: HTMLElement) {
+    this.scrollingElement = el;
   }
 
   private onThumbMouseDown(e: React.MouseEvent) {
@@ -130,7 +196,7 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
     if (deltaX !== 0 && this.track!.clientWidth - this.thumbWidth !== 0) {
       this.publishScrollEvent(
         (deltaX / (this.track!.clientWidth - this.thumbWidth)) *
-          this.scrollLeftMax,
+          this.scrollLeft.max,
         false
       );
     }
@@ -151,12 +217,10 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
     this.isMouseInside = false;
   }
   private onWheelScrollingElement(e: WheelEvent) {
-    if (e.deltaX) {
+    console.log('Wheel');
+    if (e.deltaX || e.deltaY) {
       e.preventDefault();
-      this.publishScrollEvent(e.deltaX);
-    } else if (e.shiftKey && e.deltaY) {
-      e.preventDefault();
-      this.publishScrollEvent(e.deltaY);
+      this.publishScrollEvent(e.deltaX || e.deltaY);
     }
   }
   private onWindowKeyDown(e: KeyboardEvent) {
@@ -174,6 +238,9 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
     this.scrollEvent.animate = animate;
     if (this.props.onScroll) {
       this.props.onScroll(this.scrollEvent);
+    } else {
+      this.scrollLeft.target += delta;
+      this.animationLoop.start();
     }
   }
 

@@ -1,13 +1,16 @@
 .horizontalScrollbarTrack {
-  --scrollbar-width: 4px;
+  /* TODO: Allow overriding these. */
+  --scrollbar-width: 3px;
+  --scrollbar-color: rgba(255, 255, 255, 0.2);
 
   position: absolute;
   bottom: 0;
   height: var(--scrollbar-width);
   left: 0;
-  right: var(--scrollbar-width);
+  right: 0;
   background: transparent;
   overflow: hidden;
+  z-index: var(--tab-strip-scrollbar-z);
 }
 
 .horizontalScrollbarThumb {
@@ -18,14 +21,13 @@
 }
 
 .horizontalScrollbarThumb {
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrollbar-color);
   border-radius: 2px;
+  opacity: 0;
+  transition: opacity 800ms;
 }
 
-.horizontalScrollbarThumb:hover {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.horizontalScrollbarThumb:active {
-  background: rgba(0, 0, 0, 1);
+:global(*:hover) > .horizontalScrollbarTrack .horizontalScrollbarThumb {
+  transition: opacity 200ms;
+  opacity: 1;
 }

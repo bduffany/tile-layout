@@ -9,9 +9,10 @@
  * dropzone.
  */
 
-import { v4 as uuid } from 'uuid';
 import { eventListener } from './dispose';
 import WeakBiMap from './WeakBiMap';
+
+const uuid = () => String(Math.random()).substring(2);
 
 function hoveredDropzoneElement(e: React.DragEvent) {
   const [hoveredElement] = document.elementsFromPoint(e.clientX, e.clientY);

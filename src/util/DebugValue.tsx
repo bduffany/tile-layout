@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 
 export type DebugValueProps = JSX.IntrinsicElements['pre'] & {
@@ -12,23 +6,32 @@ export type DebugValueProps = JSX.IntrinsicElements['pre'] & {
   value: any;
 };
 
-const className = `DebugValue__${Math.floor(Math.random() * Math.pow(10, 16))}`;
+const className = `DebugValue__${String(Math.random()).substring(2)}`;
 
 function DebugPanel() {
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(
+    localStorage['DebugValue__hidden'] === 'true'
+  );
   const hide = useCallback(() => setHidden(true), [setHidden]);
   const show = useCallback(() => setHidden(false), [setHidden]);
 
+  useEffect(() => {
+    localStorage['DebugValue__hidden'] = String(hidden);
+  }, [hidden]);
+
   return (
-    <div className={className}>
+    <div
+      className={className}
+      style={{
+        position: 'fixed',
+        right: 0,
+        bottom: 0,
+        zIndex: 10000,
+        maxHeight: '100%',
+      }}
+    >
       <div
         style={{
-          position: 'fixed',
-          right: 0,
-          bottom: 0,
-          maxHeight: '100%',
-          background: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1000,
           overflowY: 'auto',
           display: hidden ? 'none' : 'initial',
         }}
@@ -81,6 +84,13 @@ function DebugPanel() {
         .${className} button {
           outline: none;
           cursor: pointer;
+          font-size: 12px;
+          background: black;
+          padding: 8px;
+        }
+
+        .${className} button:hover {
+          background: rgba(0, 0, 0, 0.5);
         }
         `}
         </style>
@@ -96,11 +106,8 @@ function DebugPanel() {
         <button
           onClick={show}
           style={{
-            height: 32,
-            background: 'black',
             color: 'white',
             border: 'none',
-            padding: 8,
             borderRadius: 4,
             whiteSpace: 'nowrap',
           }}

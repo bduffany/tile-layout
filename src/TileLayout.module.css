@@ -1,4 +1,5 @@
 .tileLayout {
+  --tab-strip-scrollbar-z: 80;
   --tab-strip-z: 75;
   --tab-group-z: 50;
   --tile-border-z: 100;
@@ -156,11 +157,12 @@
 }
 
 .tabStrip {
+  position: relative;
+
   display: flex;
   flex-direction: row;
   align-items: stretch;
 
-  position: relative;
   z-index: var(--tab-strip-z);
 
   width: 100%;
@@ -172,8 +174,13 @@
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.27), 0 3px 5px rgba(0, 0, 0, 0.27);
 }
 
+.tabStripTabs::-webkit-scrollbar {
+  display: none;
+}
+
 .tabStripTabs {
   display: flex;
+  overflow-x: scroll;
 }
 
 .tabContainer {
