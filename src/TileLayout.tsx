@@ -619,7 +619,11 @@ class Tab extends React.Component<TabProps, TabState> {
     // React doesn't bubble synthetic events that occur within the user-rendered
     // tab, which is not part of the component subtree.
     this.disposers.push(
-      eventListener(this.rootRef.current!, 'click', this.onClick.bind(this)),
+      eventListener(
+        this.rootRef.current!,
+        'mousedown',
+        this.onMouseDown.bind(this)
+      ),
       ...dragListeners(this, this.rootRef.current!),
       ...dropListeners(this, this.rootRef.current!)
     );
@@ -633,7 +637,7 @@ class Tab extends React.Component<TabProps, TabState> {
     this.context!.handleDrop(e, this);
   }
 
-  private onClick() {
+  private onMouseDown() {
     this.props.parentTile.setState({ activeTabIndex: this.props.index });
   }
 
