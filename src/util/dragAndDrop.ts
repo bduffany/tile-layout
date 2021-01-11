@@ -115,16 +115,33 @@ class DebugElement {
 }
 
 function debugEvent({ type, target }: any, { color = 'orange' } = {}) {
-  // DebugElement.forTarget(target).log(type, color);
+  DebugElement.forTarget(target).log(type, color);
 }
+
+let isMouseOutsideWindow = false;
+document.addEventListener('mouseleave', (e) => {
+  isMouseOutsideWindow = true;
+  console.log('mouseleave');
+});
+document.addEventListener('dragleave', () => {
+  isMouseOutsideWindow = true;
+});
+document.addEventListener('dragenter', () => {
+  isMouseOutsideWindow = false;
+});
+document.addEventListener('mouseenter', (e) => {
+  isMouseOutsideWindow = false;
+});
 
 function hoveredDropzoneElement(e: DragEvent) {
   // console.log({ x: e.clientX, y: e.clientY });
+  if (isMouseOutsideWindow) return null;
   const [hoveredElement] = document.elementsFromPoint(e.clientX, e.clientY);
   return closestDropzoneAncestor(hoveredElement as Element);
 }
 
 function hoveredDropzoneComponent(e: DragEvent) {
+  if (isMouseOutsideWindow) return null;
   return componentDropzoneId.getKey(
     hoveredDropzoneElement(e)?.dataset['dropzoneId'] || ''
   );
@@ -161,14 +178,16 @@ function onDrag(this: React.Component & DraggableReactCallbacks, e: DragEvent) {
     this.onDrag(e);
   }
 
-  const hoveredDropzone = hoveredDropzoneComponent(e);
-  if (hoveredDropzone) {
-    debugEvent(
-      { target: hoveredDropzoneElement(e), type: 'synthetic:dragOver' },
-      { color: 'cyan' }
-    );
-    onDragOver.call(hoveredDropzone, e, { synthetic: true });
-  }
+  // setTimeout(() => {
+  //   const hoveredDropzone = hoveredDropzoneComponent(e);
+  //   if (hoveredDropzone) {
+  //     debugEvent(
+  //       { target: hoveredDropzoneElement(e), type: 'synthetic:dragOver' },
+  //       { color: 'cyan' }
+  //     );
+  //     onDragOver.call(hoveredDropzone, e, { synthetic: true });
+  //   }
+  // });
 }
 function onDragEnd(
   this: React.Component & DraggableReactCallbacks,
@@ -302,19 +321,22 @@ function onDragLeave(
 ) {
   debugEvent(e);
 
-  // Only invoke dragLeave if the drag has actually left the dropzone element.
-  const dropzone = hoveredDropzoneElement(e);
-  if (
-    !dropzone ||
-    dropzone.dataset['dropzoneId'] !== componentDropzoneId.getValue(this)
-  ) {
-    console.debug('onDragLeave', this);
-    this.setState({ isDraggingOver: false });
-    e.stopPropagation();
-    if (this.onDragLeave) {
-      this.onDragLeave(e);
+  // setTimeout allows isMouseInsideWindow to update.
+  setTimeout(() => {
+    // Only invoke dragLeave if the drag has actually left the dropzone element.
+    const dropzone = hoveredDropzoneElement(e);
+    if (
+      !dropzone ||
+      dropzone.dataset['dropzoneId'] !== componentDropzoneId.getValue(this)
+    ) {
+      console.debug('onDragLeave', this);
+      this.setState({ isDraggingOver: false });
+      e.stopPropagation();
+      if (this.onDragLeave) {
+        this.onDragLeave(e);
+      }
     }
-  }
+  });
 }
 
 export type DropzoneState = {

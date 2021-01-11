@@ -249,7 +249,7 @@ export default class TileLayout extends React.Component<
 
     return (
       <TileLayoutContext.Provider value={this}>
-        {/* TODO: Better memory management. Only render visible content on the first render.
+        {/* TODO: Better performance: only render visible content on the first render.
             Then render contents as they are requested, e.g. by clicking a tab. (?) */}
         {getContentContainerIds(this.props.layout).map((containerId) => (
           <ContentHost
