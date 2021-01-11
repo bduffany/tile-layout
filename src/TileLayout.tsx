@@ -151,12 +151,10 @@ export default class TileLayout extends React.Component<
   }
 
   private onDescendantDragStart() {
-    console.log('onDescendantDragStart');
     this.setState({ isDraggingDescendant: true });
   }
 
   private onDescendantDragEnd() {
-    console.log('onDescendantDragEnd');
     this.setState({ isDraggingDescendant: false });
   }
 
@@ -168,7 +166,7 @@ export default class TileLayout extends React.Component<
     this.tilesById.delete(tile.props.config.id as LayoutItemId);
   }
 
-  handleDrop(e: React.DragEvent, to: IDropzoneComponent) {
+  handleDrop(e: DragEvent, to: IDropzoneComponent) {
     const from = droppedComponent<DraggableComponent>(e);
     if (!from) {
       throw new Error('Could not determine dropped component from event');
@@ -178,7 +176,7 @@ export default class TileLayout extends React.Component<
 
     let dropTarget: DropTarget;
 
-    // TODO: Handle `from instanceof TabStrip` (dragging all tabs)
+    // TODO: Handle `if (from instanceof TabStrip)` -- (dragging all tabs)
 
     if (to instanceof TabStrip) {
       dropTarget = { tabIndex: -1 };
@@ -247,11 +245,6 @@ export default class TileLayout extends React.Component<
       return <></>;
     }
 
-    console.log(
-      'draggingDescendantClass:',
-      this.state.isDraggingDescendant && css.draggingDescendant
-    );
-
     const { tileRenderers, tabRenderers } = this.props;
 
     return (
@@ -316,11 +309,13 @@ class Tile extends React.Component<TileProps, TileState> {
   private borderDragController = new DragController();
   private disposers: DisposeFns = [];
 
+  dropzoneRef = React.createRef<HTMLDivElement>();
+  dropzone: HTMLDivElement | null = null;
+  private dropzoneDisposers: DisposeFns = [];
+
   componentDidMount() {
     this.context.registerTile(this);
-    if (this.rootRef.current) {
-      this.disposers.push(...dropListeners(this, this.rootRef.current!));
-    }
+    this.updateDropzoneListeners();
   }
 
   componentDidUpdate() {
@@ -330,12 +325,24 @@ class Tile extends React.Component<TileProps, TileState> {
     ) {
       this.setState({ activeTabIndex: this.props.config.tabs.length - 1 });
     }
+
+    this.updateDropzoneListeners();
+  }
+
+  updateDropzoneListeners() {
+    if (this.dropzoneRef.current === this.dropzone) return;
+    disposeAll(this.dropzoneDisposers);
+    this.dropzone = this.dropzoneRef.current;
+    this.dropzoneDisposers = this.dropzone
+      ? dropListeners(this, this.dropzone)
+      : [];
   }
 
   componentWillUnmount() {
     this.context.unregisterTile(this);
     this.borderDragController.dispose();
     disposeAll(this.disposers);
+    disposeAll(this.dropzoneDisposers);
   }
 
   focusChildTab(id: LayoutItemId) {
@@ -354,9 +361,9 @@ class Tile extends React.Component<TileProps, TileState> {
     throw new Error(`Tab ${id} not found in this tab group.`);
   }
 
-  onDragOver(e: React.DragEvent) {
+  onDragOver(e: DragEvent) {
     const dropRegion = getDropRegion(
-      this.rootRef.current!.getBoundingClientRect(),
+      this.dropzoneRef.current!.getBoundingClientRect(),
       e
     );
     const dropRegionClass = DROP_REGION_CLASSES[dropRegion];
@@ -365,7 +372,8 @@ class Tile extends React.Component<TileProps, TileState> {
     }
   }
 
-  onDrop(e: React.DragEvent) {
+  onDrop(e: DragEvent) {
+    console.debug('Tile::onDrop');
     this.context!.handleDrop(e, this);
   }
 
@@ -447,6 +455,7 @@ class Tile extends React.Component<TileProps, TileState> {
       style.flexGrow = 1;
     }
 
+    // Groups recursively render tiles.
     if (isGroup(config)) {
       return (
         <div
@@ -479,6 +488,7 @@ class Tile extends React.Component<TileProps, TileState> {
       );
     }
 
+    // Tab groups render a tab strip and a single visible tile below it.
     if (isTabGroup(config)) {
       // TODO: Render tab strip using `tabStripRenderer`.
       return (
@@ -534,6 +544,7 @@ class Tile extends React.Component<TileProps, TileState> {
                       this.state.dropRegionClass,
                       this.state.isDraggingOver && css.draggingOtherTileOver
                     )}
+                    ref={this.dropzoneRef}
                     {...dropzone(this)}
                   >
                     <ContentOutlet
@@ -565,6 +576,8 @@ class Tile extends React.Component<TileProps, TileState> {
 
           if (!content) return null;
 
+          // TODO: find a cleaner solution here
+          this.dropzoneRef = this.rootRef;
           return (
             <div
               ref={this.rootRef}
@@ -614,6 +627,9 @@ class Tab extends React.Component<TabProps, TabState> {
 
   private disposers: DisposeFns = [];
 
+  private dragAndDropDisposers: DisposeFns = [];
+  private root: HTMLDivElement | null = null;
+
   componentDidMount() {
     // Using native event listeners instead of React synthetic events because
     // React doesn't bubble synthetic events that occur within the user-rendered
@@ -623,17 +639,31 @@ class Tab extends React.Component<TabProps, TabState> {
         this.rootRef.current!,
         'mousedown',
         this.onMouseDown.bind(this)
-      ),
-      ...dragListeners(this, this.rootRef.current!),
-      ...dropListeners(this, this.rootRef.current!)
+      )
     );
+
+    this.updateDragAndDropListeners();
+  }
+
+  componentDidUpdate() {
+    this.updateDragAndDropListeners();
   }
 
   componentWillUnmount() {
     disposeAll(this.disposers);
+    disposeAll(this.dragAndDropDisposers);
   }
 
-  onDrop(e: React.DragEvent) {
+  updateDragAndDropListeners() {
+    if (this.rootRef.current === this.root) return;
+    disposeAll(this.dragAndDropDisposers);
+    this.root = this.rootRef.current;
+    this.dragAndDropDisposers = this.root
+      ? [...dropListeners(this, this.root), ...dragListeners(this, this.root)]
+      : [];
+  }
+
+  onDrop(e: DragEvent) {
     this.context!.handleDrop(e, this);
   }
 
@@ -674,14 +704,16 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
 
   state: TabStripState = {};
 
-  rootRef = React.createRef<HTMLDivElement>();
-  scrollingElementRef = React.createRef<HTMLDivElement>();
+  private rootRef = React.createRef<HTMLDivElement>();
+  private root: HTMLDivElement | null = null;
   private disposers: DisposeFns = [];
-
+  private dropzoneDisposers: DisposeFns = [];
+  private scrollingElementRef = React.createRef<HTMLDivElement>();
   private scrollbarRef = React.createRef<HorizontalScrollbar>();
 
   componentDidMount() {
-    this.disposers.push(...dropListeners(this, this.rootRef.current!));
+    this.updateDropzoneListeners();
+
     this.scrollbarRef.current!.setScrollingElement(
       this.scrollingElementRef.current!
     );
@@ -694,14 +726,23 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
   }
 
   componentDidUpdate() {
+    this.updateDropzoneListeners();
     this.scrollbarRef.current!.update();
   }
 
   componentWillUnmount() {
     disposeAll(this.disposers);
+    disposeAll(this.dropzoneDisposers);
   }
 
-  onDrop(e: React.DragEvent) {
+  private updateDropzoneListeners() {
+    if (this.rootRef.current === this.root) return;
+    disposeAll(this.dropzoneDisposers);
+    this.root = this.rootRef.current;
+    this.dropzoneDisposers = this.root ? dropListeners(this, this.root) : [];
+  }
+
+  onDrop(e: DragEvent) {
     this.context!.handleDrop(e, this);
   }
 

@@ -30,6 +30,9 @@ export default function Todo({ id }: TodoProps) {
     setNumClicks,
   ]);
 
+  const [value, setValue] = useState('Editable text');
+  const onChange = useCallback((e) => setValue(e.target.value), [setValue]);
+
   return (
     <div className={css.todoListPane}>
       <div className={css.tileContent}>
@@ -40,6 +43,7 @@ export default function Todo({ id }: TodoProps) {
         </ul>
         <div style={{ fontSize: 12 }}>Rendered {renderCount} times.</div>
         <button onClick={onButtonClick}>Clicked {numClicks} times.</button>
+        <input value={value} onChange={onChange}></input>
       </div>
     </div>
   );

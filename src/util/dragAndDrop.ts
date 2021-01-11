@@ -14,12 +14,117 @@ import WeakBiMap from './WeakBiMap';
 
 const uuid = () => String(Math.random()).substring(2);
 
-function hoveredDropzoneElement(e: React.DragEvent) {
+class DebugElement {
+  static instances = new WeakMap<HTMLElement, DebugElement>();
+  static fadeOutDuration = 200;
+  static logPersistence = 300;
+
+  private logs: {
+    text: string;
+    color: string;
+    timestamp: number;
+    id: string;
+  }[] = [];
+  private fadeTimeout: any;
+  private outline: HTMLDivElement = document.createElement('div');
+
+  constructor(element: HTMLElement) {
+    DebugElement.instances.set(element, this);
+    Object.assign(this.outline.style, {
+      position: 'fixed',
+      boxSizing: 'border-box',
+      borderRadius: '4px',
+      transition: `opacity ${DebugElement.fadeOutDuration}ms`,
+      zIndex: 1_000_000,
+      pointerEvents: 'none',
+      fontWeight: 'bold',
+      textShadow: '0 0 3px rgba(0, 0, 0, 0.9)',
+      boxShadow: '0 6px 12px rgba(0, 0, 0, 0.5) inset',
+      fontFamily: 'monospace',
+      fontSize: 10,
+    });
+    this.fit(element);
+    document.body.appendChild(this.outline);
+  }
+
+  static forTarget(element: HTMLElement): DebugElement {
+    if (DebugElement.instances.has(element)) {
+      const existing = DebugElement.instances.get(element)!;
+      existing.fit(element);
+      return existing;
+    }
+
+    return new DebugElement(element);
+  }
+
+  private fit(target: HTMLElement) {
+    const { x: left, y: top, height, width } = target.getBoundingClientRect();
+    Object.assign(this.outline.style, {
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+    });
+  }
+
+  log(text: string, color: string) {
+    if (this.fadeTimeout) {
+      clearTimeout(this.fadeTimeout);
+    }
+    Object.assign(this.outline.style, {
+      border: `1px solid ${color}`,
+      color,
+      opacity: '1',
+    });
+    this.fadeTimeout = setTimeout(() => {
+      this.outline.style.opacity = '0';
+    }, 200);
+    text = text || '?';
+
+    const lastEntry = this.logs[this.logs.length - 1];
+    if (lastEntry && lastEntry.text === text && lastEntry.color === color) {
+      lastEntry.timestamp = window.performance.now();
+    } else {
+      const id = 'L' + uuid();
+      this.logs.push({
+        text,
+        color,
+        timestamp: window.performance.now(),
+        id,
+      });
+      const logLine = document.createElement('div');
+      logLine.innerText = text;
+      logLine.style.color = color;
+      logLine.id = id;
+      this.outline.prepend(logLine);
+    }
+    this.pruneLogs();
+  }
+
+  private pruneLogs() {
+    const now = window.performance.now();
+    this.logs = this.logs.filter((entry) => {
+      if (now - entry.timestamp > DebugElement.logPersistence) {
+        this.outline.querySelector(`#${entry.id}`)!.remove();
+        return false;
+      } else {
+        return true;
+      }
+    });
+  }
+}
+
+function debugEvent({ type, target }: any, { color = 'orange' } = {}) {
+  // DebugElement.forTarget(target).log(type, color);
+}
+
+function hoveredDropzoneElement(e: DragEvent) {
+  // console.log({ x: e.clientX, y: e.clientY });
   const [hoveredElement] = document.elementsFromPoint(e.clientX, e.clientY);
   return closestDropzoneAncestor(hoveredElement as Element);
 }
 
-function hoveredDropzoneComponent(e: React.DragEvent) {
+function hoveredDropzoneComponent(e: DragEvent) {
   return componentDropzoneId.getKey(
     hoveredDropzoneElement(e)?.dataset['dropzoneId'] || ''
   );
@@ -29,16 +134,18 @@ let draggedComponent: React.Component | null = null;
 
 function onDragStart(
   this: React.Component & DraggableReactCallbacks,
-  e: React.DragEvent<any>
+  e: DragEvent
 ) {
+  debugEvent(e);
+
   draggedComponent = this;
-  e.target.dispatchEvent(
+  e.target!.dispatchEvent(
     new CustomEvent('dragAndDrop:beginDrag', { bubbles: true })
   );
 
   e.stopPropagation();
   this.setState({ isDragging: true });
-  e.dataTransfer.setData(
+  e.dataTransfer!.setData(
     'text',
     (e.target as HTMLElement).dataset['draggableId'] as string
   );
@@ -46,10 +153,9 @@ function onDragStart(
     this.onDragStart(e);
   }
 }
-function onDrag(
-  this: React.Component & DraggableReactCallbacks,
-  e: React.DragEvent<any>
-) {
+function onDrag(this: React.Component & DraggableReactCallbacks, e: DragEvent) {
+  debugEvent(e);
+
   e.stopPropagation();
   if (this.onDrag) {
     this.onDrag(e);
@@ -57,18 +163,22 @@ function onDrag(
 
   const hoveredDropzone = hoveredDropzoneComponent(e);
   if (hoveredDropzone) {
-    onDragOver.call(hoveredDropzone, e);
+    debugEvent(
+      { target: hoveredDropzoneElement(e), type: 'synthetic:dragOver' },
+      { color: 'cyan' }
+    );
+    onDragOver.call(hoveredDropzone, e, { synthetic: true });
   }
 }
 function onDragEnd(
   this: React.Component & DraggableReactCallbacks,
-  e: React.DragEvent<any>
+  e: DragEvent
 ) {
-  console.debug('onDrop', this, e.nativeEvent);
+  debugEvent(e);
 
   if (draggedComponent) {
     draggedComponent = null;
-    e.target.dispatchEvent(
+    e.target?.dispatchEvent(
       new CustomEvent('dragAndDrop:endDrag', { bubbles: true })
     );
   }
@@ -84,10 +194,11 @@ export type DraggableState = {
   isDragging?: boolean;
 };
 
-export type DraggableReactCallbacks = Pick<
-  JSX.IntrinsicElements['div'],
-  'onDrag' | 'onDragStart' | 'onDragEnd'
->;
+export type DraggableReactCallbacks = {
+  onDrag?: (e: DragEvent) => any;
+  onDragStart?: (e: DragEvent) => any;
+  onDragEnd?: (e: DragEvent) => any;
+};
 
 const componentDraggableId = new WeakBiMap<React.Component, string>();
 const componentDropzoneId = new WeakBiMap<React.Component, string>();
@@ -97,7 +208,7 @@ export function draggable(
 ): {
   draggable: true;
   'data-draggable-id': string;
-} & DraggableReactCallbacks {
+} {
   let draggableId = componentDraggableId.getValue(draggable);
   if (!draggableId) {
     draggableId = `draggable__${uuid()}`;
@@ -136,8 +247,10 @@ const closestDropzoneAncestor = closestAncestorMatching.bind(null, (el) =>
 
 function onDragEnter(
   this: React.Component & DropzoneReactCallbacks,
-  e: React.DragEvent<any>
+  e: DragEvent
 ) {
+  debugEvent(e);
+
   e.stopPropagation();
 
   if (!draggedComponent) return;
@@ -149,11 +262,15 @@ function onDragEnter(
 }
 function onDragOver(
   this: React.Component & DropzoneReactCallbacks,
-  e: React.DragEvent<any>
+  e: DragEvent,
+  { synthetic = false } = {}
 ) {
-  // Let it be known that this element is a dropzone.
-  e.stopPropagation();
-  e.preventDefault();
+  if (!synthetic) {
+    debugEvent(e);
+    // Let it be known that this element is a dropzone.
+    e.stopPropagation();
+    e.preventDefault();
+  }
 
   if (!draggedComponent) return;
 
@@ -162,16 +279,15 @@ function onDragOver(
     this.onDragOver(e);
   }
 }
-function onDrop(
-  this: React.Component & DropzoneReactCallbacks,
-  e: React.DragEvent<any>
-) {
+function onDrop(this: React.Component & DropzoneReactCallbacks, e: DragEvent) {
+  debugEvent(e);
+
   e.stopPropagation();
 
   if (!draggedComponent) return;
 
   draggedComponent = null;
-  e.target.dispatchEvent(
+  e.target!.dispatchEvent(
     new CustomEvent('dragAndDrop:endDrag', { bubbles: true })
   );
 
@@ -182,14 +298,17 @@ function onDrop(
 }
 function onDragLeave(
   this: React.Component & DropzoneReactCallbacks,
-  e: React.DragEvent<any>
+  e: DragEvent
 ) {
+  debugEvent(e);
+
   // Only invoke dragLeave if the drag has actually left the dropzone element.
   const dropzone = hoveredDropzoneElement(e);
   if (
     !dropzone ||
     dropzone.dataset['dropzoneId'] !== componentDropzoneId.getValue(this)
   ) {
+    console.debug('onDragLeave', this);
     this.setState({ isDraggingOver: false });
     e.stopPropagation();
     if (this.onDragLeave) {
@@ -202,11 +321,12 @@ export type DropzoneState = {
   isDraggingOver?: boolean;
 };
 
-type IntrinsicElement = JSX.IntrinsicElements[keyof JSX.IntrinsicElements];
-
-export type DropzoneReactCallbacks<
-  T extends IntrinsicElement = JSX.IntrinsicElements['div']
-> = Pick<T, 'onDragEnter' | 'onDragOver' | 'onDragLeave' | 'onDrop'>;
+export type DropzoneReactCallbacks = {
+  onDragEnter?: (e: DragEvent) => any;
+  onDragOver?: (e: DragEvent) => any;
+  onDragLeave?: (e: DragEvent) => any;
+  onDrop?: (e: DragEvent) => any;
+};
 
 export function dropzone(dropzone: React.Component & DropzoneReactCallbacks) {
   let dropzoneId = componentDropzoneId.getValue(dropzone);
@@ -240,17 +360,17 @@ export function dropListeners(
  * returned by `draggable` above.
  */
 export function droppedComponent<T extends React.Component = React.Component>(
-  e: React.DragEvent
+  e: DragEvent
 ): T {
-  const draggableId = e.dataTransfer.getData('text');
+  const draggableId = e.dataTransfer!.getData('text');
   if (process.env.NODE_ENV === 'development' && !draggableId) {
     throw new Error('Drag event is missing draggableId in dataTransfer');
   }
-  return componentDraggableId.getKey(draggableId) as T;
+  return componentDraggableId.getKey(draggableId!) as T;
 }
 
 export function droppedElement(e: React.DragEvent): HTMLElement {
-  const draggableId = e.dataTransfer.getData('text');
+  const draggableId = e.dataTransfer!.getData('text');
   return document.querySelector(
     `[data-draggable-id="${draggableId}"]`
   ) as HTMLElement;

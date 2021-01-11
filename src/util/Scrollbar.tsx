@@ -102,16 +102,12 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
   }
 
   private draw(dt: number) {
-    console.log('draw');
-
     this.scrollLeft.step(dt);
     if (this.scrollingElement) {
       this.scrollingElement.scrollLeft = this.scrollLeft.value;
     }
     if (this.scrollLeft.isAtTarget) {
       this.animationLoop.stop();
-
-      console.log('at target; stopped');
     } else {
       this.setVisible(true);
     }
