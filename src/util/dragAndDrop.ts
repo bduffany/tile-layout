@@ -13,6 +13,8 @@ import { eventListener } from './dispose';
 import WeakBiMap from './WeakBiMap';
 import uuid from './uuid';
 
+const DEBUG = false;
+
 class DebugElement {
   static instances = new WeakMap<HTMLElement, DebugElement>();
   static fadeOutDuration = 200;
@@ -114,9 +116,12 @@ class DebugElement {
 }
 
 function debugEvent({ type, target }: any, { color = 'orange' } = {}) {
-  // DebugElement.forTarget(target).log(type, color);
+  if (DEBUG) {
+    DebugElement.forTarget(target).log(type, color);
+  }
 }
 
+let cancelNextDrag = false;
 let isMouseOutsideWindow = false;
 document.addEventListener('mouseleave', (e) => {
   isMouseOutsideWindow = true;
@@ -131,6 +136,13 @@ document.addEventListener('dragenter', () => {
 document.addEventListener('mouseenter', (e) => {
   isMouseOutsideWindow = false;
 });
+window.addEventListener('mouseup', () => {
+  cancelNextDrag = false;
+});
+
+export function preventNextDrag() {
+  cancelNextDrag = true;
+}
 
 function hoveredDropzoneElement(e: DragEvent) {
   // console.log({ x: e.clientX, y: e.clientY });
@@ -141,9 +153,9 @@ function hoveredDropzoneElement(e: DragEvent) {
 
 function hoveredDropzoneComponent(e: DragEvent) {
   if (isMouseOutsideWindow) return null;
-  return componentDropzoneId.getKey(
-    hoveredDropzoneElement(e)?.dataset['dropzoneId'] || ''
-  );
+  return componentDropzoneId
+    .inverse()
+    .get(hoveredDropzoneElement(e)?.dataset['dropzoneId'] || '');
 }
 
 let draggedComponent: React.Component | null = null;
@@ -152,6 +164,11 @@ function onDragStart(
   this: React.Component & DraggableReactCallbacks,
   e: DragEvent
 ) {
+  if (cancelNextDrag) {
+    e.preventDefault();
+    cancelNextDrag = false;
+  }
+
   // TODO: Figure out why this happens
   if (!(e.target as HTMLElement).dataset) return;
 
@@ -231,7 +248,7 @@ export function draggable(
   draggable: true;
   'data-draggable-id': string;
 } {
-  let draggableId = componentDraggableId.getValue(draggable);
+  let draggableId = componentDraggableId.get(draggable);
   if (!draggableId) {
     draggableId = `draggable__${uuid()}`;
     componentDraggableId.set(draggable, draggableId);
@@ -330,7 +347,7 @@ function onDragLeave(
     const dropzone = hoveredDropzoneElement(e);
     if (
       !dropzone ||
-      dropzone.dataset['dropzoneId'] !== componentDropzoneId.getValue(this)
+      dropzone.dataset['dropzoneId'] !== componentDropzoneId.get(this)
     ) {
       console.debug('onDragLeave', this);
       this.setState({ isDraggingOver: false });
@@ -354,7 +371,7 @@ export type DropzoneReactCallbacks = {
 };
 
 export function dropzone(dropzone: React.Component & DropzoneReactCallbacks) {
-  let dropzoneId = componentDropzoneId.getValue(dropzone);
+  let dropzoneId = componentDropzoneId.get(dropzone);
   if (!dropzoneId) {
     dropzoneId = `droppable__${uuid()}`;
     componentDropzoneId.set(dropzone, dropzoneId);
@@ -391,7 +408,7 @@ export function droppedComponent<T extends React.Component = React.Component>(
   if (process.env.NODE_ENV === 'development' && !draggableId) {
     throw new Error('Drag event is missing draggableId in dataTransfer');
   }
-  return componentDraggableId.getKey(draggableId!) as T;
+  return componentDraggableId.inverse().get(draggableId!) as T;
 }
 
 export function droppedElement(e: React.DragEvent): HTMLElement {

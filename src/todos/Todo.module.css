@@ -33,6 +33,8 @@
   cursor: pointer;
   transform: translateY(1px);
   border-radius: 50%;
+
+  transition: all 100ms ease-out;
 }
 
 .tabCloseButton:hover {

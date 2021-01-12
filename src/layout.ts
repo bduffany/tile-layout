@@ -91,6 +91,35 @@ export function isTabGroup(
   return 'tabs' in item;
 }
 
+export function tileInstanceCount(
+  layout: TileLayoutConfig | null,
+  id: LayoutItemId
+): number {
+  if (layout === null) return 0;
+
+  if (isGroup(layout)) {
+    let sum = 0;
+    for (const item of layout.items) {
+      sum += tileInstanceCount(item, id);
+    }
+    return sum;
+  }
+
+  if (isTabGroup(layout)) {
+    let sum = 0;
+    for (const tab of layout.tabs) {
+      sum += tileInstanceCount(tab, id);
+    }
+    return sum;
+  }
+
+  if (layout.id === id) {
+    return 1;
+  }
+
+  return 0;
+}
+
 export function applyRemove(
   layout: TileLayoutConfig | null,
   id: LayoutItemId

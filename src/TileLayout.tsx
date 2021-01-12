@@ -10,6 +10,7 @@ import {
   LayoutItemId,
   TileConfig,
   TileGroupConfig,
+  tileInstanceCount,
   TileLayoutConfig,
   TileTabGroupConfig,
 } from './layout';
@@ -26,6 +27,7 @@ import {
   droppedComponent,
   dropzone,
   DropzoneState,
+  preventNextDrag,
 } from './util/dragAndDrop';
 import DebugValue from './util/DebugValue';
 import { disposeAll, DisposeFns, eventListener } from './util/dispose';
@@ -791,6 +793,7 @@ export type TabCloseButtonProps<
   T extends keyof JSX.IntrinsicElements
 > = JSX.IntrinsicElements[T] & {
   as?: T;
+  confirm?: (id: LayoutItemId) => boolean | Promise<boolean>;
   // TODO: see if we can make this optional. Traverse up the DOM to find the
   // tab ID on the DOM element (as a data- attribute).
   tabId: LayoutItemId;
@@ -799,27 +802,47 @@ export type TabCloseButtonProps<
 /**
  * Wrapper component for creating a close button within a tab renderer.
  *
- * Example:
+ * ## Typical usage
  *
- * ```
- * <TabCloseButton className={css.myButton}>
- *   X
- * </TabCloseButton>
+ * By default, the `TabCloseButton` renders a `<button>` element, so you
+ * only need to provide the contents of that button, as well as any
+ * styling:
+ *
+ * ```tsx
+ * <TabCloseButton className={css.myButton}><MyCloseIcon /></TabCloseButton>
  * ```
  *
- * To use a custom button component:
+ * ## Using a custom button
  *
- * ```
+ * If you'd rather use your own button, you can use a `div` wrapper element
+ * instead:
+ *
+ * ```tsx
  * <TabCloseButton as="div" className={css.myButtonWrapper}>
  *   <MyCloseButton />
  * </TabCloseButton>
  * ```
+ * Click events from `<MyCustomButton />` will bubble up to `<TabCloseButton />`
+ * and close the tab, unless you cancel bubbling using `e.stopPropagation()`.
  *
- * Click events from `<MyCloseButton />` will bubble up to `<TabCloseButton />`
- * and close the tab.
+ * ## Confirming deletion
+ *
+ * If you want to intercept the click and run a check to confirm that the tab
+ * should be closed, use the `confirm` function prop:
+ *
+ * ```tsx
+ * async function confirmClose(id: string): Promise<boolean> {
+ *   return await showConfirmationDialog('Are you sure you want to close?')
+ * }
+ * const MyCloseButton = () => <TabCloseButton confirm={confirmClose} />
+ * ```
+ *
+ * The confirmation function is only run if there are no other clones of
+ * this tab (tabs with the same ID) currently open.
  */
 export function TabCloseButton<T extends keyof JSX.IntrinsicElements>({
   as,
+  confirm,
   tabId,
   onClick,
   ...props
@@ -833,24 +856,32 @@ export function TabCloseButton<T extends keyof JSX.IntrinsicElements>({
     // Using native events because canceling propagation here doesn't
     // actually stop propagation to the parent tab, since we're using
     // native events for the parent tab.
-    const onMouseDown = (e: MouseEvent) => e.stopPropagation();
+    const onMouseDown = (e: MouseEvent) => {
+      e.stopPropagation();
+      preventNextDrag();
+    };
 
     const el = ref.current;
     el.addEventListener('mousedown', onMouseDown);
-    return () => {
-      el.removeEventListener('mousedown', onMouseDown);
-    };
+    return () => el.removeEventListener('mousedown', onMouseDown);
   });
 
   const onClick_ = React.useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       if (onClick) {
         onClick(e as any);
         if (e.nativeEvent.cancelBubble) return;
       }
+      if (
+        confirm &&
+        tileInstanceCount(layout.props.layout, tabId) === 1 &&
+        !(await confirm(tabId))
+      ) {
+        return;
+      }
       layout.closeTab(tabId);
     },
-    [onClick, tabId, layout]
+    [confirm, onClick, tabId, layout]
   );
   return React.createElement((as || 'button') as string, {
     ref,
