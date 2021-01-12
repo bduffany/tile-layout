@@ -4,6 +4,8 @@ import { AnimatedValue } from './AnimatedValue';
 import { AnimationLoop } from './AnimationLoop';
 import { eventListener } from './dispose';
 import css from './Scrollbar.module.css';
+// TODO: decouple this
+import * as events from '../events';
 
 export type ScrollEvent = {
   delta: number;
@@ -81,7 +83,7 @@ export class HorizontalScrollbar extends React.Component<HorizontalScrollbarProp
       // TODO: only listen to relevant borders
       eventListener(
         window,
-        'TileLayout:dragBorder',
+        events.dragBorder.type,
         this.onResizeAnyTile.bind(this)
       )
     );

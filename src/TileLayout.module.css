@@ -111,7 +111,7 @@
 
   z-index: var(--tile-border-overlay-z);
 
-  transition: transform 200ms ease-out, opacity 200ms ease-out;
+  transition: transform 50ms ease-out;
 }
 
 .tileBorder.vertical::after {
@@ -123,39 +123,35 @@
 
 .tileBorder.vertical:hover::after {
   transform: translateX(0.5px) translateX(-50%);
-  opacity: 1;
-}
-
-.tileBorder.vertical:hover:active::after {
-  opacity: 0.5;
 }
 
 .tileBorder.horizontal::after {
   cursor: ns-resize;
   height: var(--size);
   transform: translateY(0.5px) translateY(-50%) scaleY(0.5);
-  opacity: 0;
 }
 
 .tileBorder.horizontal:hover::after {
   transform: translateY(0.5px) translateY(-50%);
-  opacity: 1;
 }
 
 .tileBorder.horizontal:hover::after,
 .tileBorder.vertical:hover::after {
   /* TODO: Move to "default" styles */
   background: rgba(0, 0, 0, 0.1);
+  opacity: 0;
 }
 
 .tileBorder.horizontal {
   height: var(--thickness);
+  min-height: var(--thickness);
   width: 100%;
 }
 
 .tileBorder.vertical {
   height: 100%;
   width: var(--thickness);
+  min-width: var(--thickness);
 }
 
 .tabStrip {

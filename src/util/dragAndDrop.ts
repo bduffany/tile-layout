@@ -11,8 +11,7 @@
 
 import { eventListener } from './dispose';
 import WeakBiMap from './WeakBiMap';
-
-const uuid = () => String(Math.random()).substring(2);
+import uuid from './uuid';
 
 class DebugElement {
   static instances = new WeakMap<HTMLElement, DebugElement>();

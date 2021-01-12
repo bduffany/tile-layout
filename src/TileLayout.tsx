@@ -30,6 +30,7 @@ import DebugValue from './util/DebugValue';
 import { disposeAll, DisposeFns, eventListener } from './util/dispose';
 import { HorizontalScrollbar } from './util/Scrollbar';
 import { ContentHost, ContentOutlet } from './content';
+import * as events from './events';
 
 export type TileRenderer<T extends LayoutItemId = string> = (
   id: T
@@ -380,10 +381,12 @@ class Tile extends React.Component<TileProps, TileState> {
   private lengthsAtDragStartPx = { a: 0, b: 0 };
 
   private onBorderMouseDown(e: React.MouseEvent) {
-    const controllerDragStart = this.borderDragController.getDragStartHandler(
-      this.onDragBorder.bind(this)
-    );
     const config = this.props.config as TileGroupConfig;
+    const controllerDragStart = this.borderDragController.getDragStartHandler(
+      this.onDragBorder.bind(this),
+      this.onReleaseBorder.bind(this),
+      config.direction === 'row' ? 'ew-resize' : 'ns-resize'
+    );
     const [a, b] = config.items;
     const containerA = this.context.tilesById.get(a.id!)!.rootRef.current!;
     const containerB = this.context.tilesById.get(b.id!)!.rootRef.current!;
@@ -402,6 +405,8 @@ class Tile extends React.Component<TileProps, TileState> {
     }
 
     controllerDragStart(e.nativeEvent);
+
+    this.rootRef.current!.dispatchEvent(events.dragBorderStart());
   }
 
   private onDragBorder({
@@ -429,9 +434,11 @@ class Tile extends React.Component<TileProps, TileState> {
     tileA.rootRef.current!.style.flexGrow = String(a.weight);
     tileB.rootRef.current!.style.flexGrow = String(b.weight);
 
-    this.rootRef.current!.dispatchEvent(
-      new CustomEvent('TileLayout:dragBorder', { bubbles: true })
-    );
+    this.rootRef.current!.dispatchEvent(events.dragBorder());
+  }
+
+  private onReleaseBorder() {
+    this.rootRef.current!.dispatchEvent(events.dragBorderEnd());
   }
 
   render() {
