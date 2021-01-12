@@ -37,13 +37,15 @@
 .tileGroup.row > .tileGroup {
   /* Dimensions are controlled by flex-grow. */
   width: 0;
+  min-width: 220px;
 }
 
 .tileGroup.column > .tile,
 .tileGroup.column > .tileTabGroup,
 .tileGroup.column > .tileGroup {
-  /* Dimensions are controlled by flex-grow. */
+  /* Height is controlled by flex-grow. */
   height: 0;
+  min-height: 70px;
 }
 
 .tileTabGroup {
