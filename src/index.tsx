@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import setFont from './util/setFont';
+
+(window as any).setFont = setFont;
 
 ReactDOM.render(<App />, document.getElementById('root'));
 

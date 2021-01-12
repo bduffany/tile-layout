@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   applyDrop,
+  applyRemove,
   contentContainerIdKey,
   DropTarget,
   getContentContainerIds,
@@ -124,6 +125,7 @@ export default class TileLayout extends React.Component<
     this.disposeFns.push(
       eventListener(
         this.rootRef.current!,
+        // TODO: namespace these events
         'dragAndDrop:beginDrag',
         this.onDescendantDragStart.bind(this)
       ),
@@ -157,6 +159,14 @@ export default class TileLayout extends React.Component<
 
   private onDescendantDragEnd() {
     this.setState({ isDraggingDescendant: false });
+  }
+
+  closeTab(id: LayoutItemId) {
+    const layout = applyRemove(this.state.layout, id);
+
+    this.setState({ layout });
+
+    // TODO: focus previous tab in the tab group
   }
 
   registerTile(tile: Tile) {
@@ -775,4 +785,76 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
       </div>
     );
   }
+}
+
+export type TabCloseButtonProps<
+  T extends keyof JSX.IntrinsicElements
+> = JSX.IntrinsicElements[T] & {
+  as?: T;
+  // TODO: see if we can make this optional. Traverse up the DOM to find the
+  // tab ID on the DOM element (as a data- attribute).
+  tabId: LayoutItemId;
+};
+
+/**
+ * Wrapper component for creating a close button within a tab renderer.
+ *
+ * Example:
+ *
+ * ```
+ * <TabCloseButton className={css.myButton}>
+ *   X
+ * </TabCloseButton>
+ * ```
+ *
+ * To use a custom button component:
+ *
+ * ```
+ * <TabCloseButton as="div" className={css.myButtonWrapper}>
+ *   <MyCloseButton />
+ * </TabCloseButton>
+ * ```
+ *
+ * Click events from `<MyCloseButton />` will bubble up to `<TabCloseButton />`
+ * and close the tab.
+ */
+export function TabCloseButton<T extends keyof JSX.IntrinsicElements>({
+  as,
+  tabId,
+  onClick,
+  ...props
+}: TabCloseButtonProps<T>) {
+  const layout = React.useContext(TileLayoutContext);
+  const ref = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    if (!ref.current) return;
+
+    // Using native events because canceling propagation here doesn't
+    // actually stop propagation to the parent tab, since we're using
+    // native events for the parent tab.
+    const onMouseDown = (e: MouseEvent) => e.stopPropagation();
+
+    const el = ref.current;
+    el.addEventListener('mousedown', onMouseDown);
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown);
+    };
+  });
+
+  const onClick_ = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (onClick) {
+        onClick(e as any);
+        if (e.nativeEvent.cancelBubble) return;
+      }
+      layout.closeTab(tabId);
+    },
+    [onClick, tabId, layout]
+  );
+  return React.createElement((as || 'button') as string, {
+    ref,
+    ...props,
+    onClick: onClick_,
+  });
 }

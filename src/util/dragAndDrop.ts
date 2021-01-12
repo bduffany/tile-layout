@@ -152,6 +152,9 @@ function onDragStart(
   this: React.Component & DraggableReactCallbacks,
   e: DragEvent
 ) {
+  // TODO: Figure out why this happens
+  if (!(e.target as HTMLElement).dataset) return;
+
   debugEvent(e);
 
   draggedComponent = this;
@@ -161,6 +164,7 @@ function onDragStart(
 
   e.stopPropagation();
   this.setState({ isDragging: true });
+
   e.dataTransfer!.setData(
     'text',
     (e.target as HTMLElement).dataset['draggableId'] as string

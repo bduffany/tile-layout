@@ -91,6 +91,26 @@ export function isTabGroup(
   return 'tabs' in item;
 }
 
+export function applyRemove(
+  layout: TileLayoutConfig | null,
+  id: LayoutItemId
+): TileLayoutConfig | null {
+  if (layout === null) {
+    throw new Error('Cannot remove from an empty layout');
+  }
+
+  const removeResult = remove(id, layout);
+  if (!removeResult) {
+    throw new Error(`Could not remove item with ID: ${id}`);
+  }
+  [layout] = removeResult;
+  layout = prune(layout);
+
+  if (layout === null) return null;
+
+  return { ...layout, weight: 1 };
+}
+
 export function applyDrop(
   layout: TileLayoutConfig | null,
   fromId: LayoutItemId,
@@ -104,11 +124,11 @@ export function applyDrop(
   // TODO: Pre-compute summary fields and/or use a balanced tree to make this
   // impl more efficient for large layouts.
 
-  let removed: TileGroupConfig | TileConfig | null;
   const removeResult = remove(fromId, layout);
   if (!removeResult) {
     throw new Error(`Could not find item with ID: ${toId}`);
   }
+  let removed: TileGroupConfig | TileConfig | null;
   [layout, removed] = removeResult;
 
   let newLayout = insert(removed, toId, dropTarget, layout);
