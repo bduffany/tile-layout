@@ -199,6 +199,8 @@ export default class TileLayout extends React.Component<
       // within the parent tab group.
       toId = to.props.parentTile.props.config.id!;
     } else {
+      // to instanceof Tile
+
       if (!(to instanceof Tile)) {
         if (process.env.NODE_ENV === 'development') {
           throw new Error(`Unrecognized drop target component type: ${to}`);
@@ -212,11 +214,26 @@ export default class TileLayout extends React.Component<
         ),
       };
       if (dropTarget.dropRegion === 'cover') {
+        // If tab is already contained in this tab group, don't
+        // insert at all.
+        const toConfig = to.props.config;
+        if (isTabGroup(toConfig)) {
+          for (const tab of toConfig.tabs) {
+            if (tab.id === fromId) return;
+          }
+        }
+
+        // TODO: this probably needs to be `to.parent` which is the tab group.
         // When dropping a tab onto the center of a tile, we actually want
-        // top drop within the parent tab group.
-        dropTarget = {
-          tabIndex: -1,
-        };
+        // to drop within the parent tab group.
+        let tabIndex = -1;
+        if (to.state.activeTabIndex !== undefined) {
+          tabIndex = to.state.activeTabIndex + 1;
+        }
+
+        // TODO: Insert after the currently active tab, instead of at
+        // the end.
+        dropTarget = { tabIndex };
       }
     }
 
@@ -329,17 +346,22 @@ class Tile extends React.Component<TileProps, TileState> {
   componentDidMount() {
     this.context.registerTile(this);
     this.updateDropzoneListeners();
+
+    this.updateActiveTabIndex();
   }
 
   componentDidUpdate() {
+    this.updateActiveTabIndex();
+    this.updateDropzoneListeners();
+  }
+
+  private updateActiveTabIndex() {
     if (
       isTabGroup(this.props.config) &&
       (this.state.activeTabIndex || 0) >= this.props.config.tabs.length
     ) {
       this.setState({ activeTabIndex: this.props.config.tabs.length - 1 });
     }
-
-    this.updateDropzoneListeners();
   }
 
   updateDropzoneListeners() {
