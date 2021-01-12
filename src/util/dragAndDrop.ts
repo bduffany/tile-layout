@@ -115,7 +115,7 @@ class DebugElement {
 }
 
 function debugEvent({ type, target }: any, { color = 'orange' } = {}) {
-  DebugElement.forTarget(target).log(type, color);
+  // DebugElement.forTarget(target).log(type, color);
 }
 
 let isMouseOutsideWindow = false;

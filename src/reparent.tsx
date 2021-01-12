@@ -21,13 +21,24 @@ export type InletProps<IdType, DataType> = {
   renderer: (data?: DataType | null) => React.ReactNode;
 };
 
-export const Inlet = React.memo(function <IdType, DataType>({
-  id,
-  data,
-  renderer,
-}: InletProps<IdType, DataType>) {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
+export class Inlet<IdType, DataType> extends React.PureComponent<
+  InletProps<IdType, DataType>
+> {
+  private containerRef = React.createRef<HTMLDivElement>();
+
+  componentDidMount() {
+    this.update();
+  }
+
+  componentDidUpdate() {
+    this.update();
+  }
+
+  private update() {
+    const {
+      props: { id },
+      containerRef,
+    } = this;
     if (!id || !containerRef.current?.childElementCount) return;
     const element = containerRef.current.children[0];
     elementsById.set(id, element);
@@ -38,13 +49,20 @@ export const Inlet = React.memo(function <IdType, DataType>({
       }
       elementCallbacks.delete(id);
     }
-  }, [id]);
-  return (
-    <div style={{ display: 'none' }} ref={containerRef}>
-      {id && <div>{renderer(data)}</div>}
-    </div>
-  );
-});
+  }
+
+  render() {
+    const {
+      props: { id, data, renderer },
+      containerRef,
+    } = this;
+    return (
+      <div style={{ display: 'none' }} ref={containerRef}>
+        {id && <div>{renderer(data)}</div>}
+      </div>
+    );
+  }
+}
 
 type OutletProps<T> = Omit<JSX.IntrinsicElements['div'], 'id'> & {
   id?: T | null;
