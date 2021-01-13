@@ -9,6 +9,13 @@ export type LayoutItemId = string | number;
 // NOTE: This tile layout is serializable, so it can be persisted.
 export type TileLayoutConfig = TileGroupConfig | TileConfig;
 
+/**
+ * ActiveTabState maps each tab group to the index of the currently
+ * active tab within the group.
+ */
+// TODO: rename to ActiveTabIndexes?
+export type ActiveTabState = Record<LayoutItemId, number>;
+
 export type LayoutItem = {
   id?: LayoutItemId;
   weight?: number;
@@ -178,8 +185,9 @@ export function applyDrop(
 }
 
 export function getContentContainerIds(
-  layout: TileLayoutConfig
+  layout: TileLayoutConfig | null
 ): ContentContainerId[] {
+  if (layout === null) return [];
   return populateContentContainerIds(layout, []);
 }
 

@@ -1,8 +1,9 @@
 import React from 'react';
 import css from './App.module.css';
-import { TileLayoutConfig } from './layout';
+import { ActiveTabState, TileLayoutConfig } from './layout';
 import TileLayout, { TabRenderers, TileRenderers } from './TileLayout';
 import Todo, { TodoTab } from './todos/Todo';
+import { useJsonLocalStorage } from './util/useLocalStorage';
 
 window.React = React;
 
@@ -21,7 +22,7 @@ const tabRenderers: TabRenderers = {
   },
 };
 
-const layout: TileLayoutConfig = {
+const exampleLayout: TileLayoutConfig = {
   direction: 'row',
   gap: 1,
   items: [
@@ -42,13 +43,27 @@ const layout: TileLayoutConfig = {
   ],
 };
 
+const EXAMPLE_LAYOUT_JSON = JSON.stringify(exampleLayout);
+
 function App() {
+  const [layout, onLayoutChange] = useJsonLocalStorage<TileLayoutConfig | null>(
+    'layout',
+    EXAMPLE_LAYOUT_JSON
+  );
+  const [
+    activeTabState,
+    onActiveTabStateChange,
+  ] = useJsonLocalStorage<ActiveTabState>('activeTabState', '{}');
+
   return (
     <div className={css.app}>
       <TileLayout
         tileRenderers={tileRenderers}
         tabRenderers={tabRenderers}
         layout={layout}
+        onLayoutChange={onLayoutChange}
+        activeTabState={activeTabState}
+        onActiveTabStateChange={onActiveTabStateChange}
       />
     </div>
   );

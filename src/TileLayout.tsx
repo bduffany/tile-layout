@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActiveTabState,
   applyDrop,
   applyRemove,
   contentContainerIdKey,
@@ -56,7 +57,10 @@ export type TabRenderers<T extends LayoutItemId = string> = Record<
 export type TileLayoutProps = JSX.IntrinsicElements['div'] & {
   tileRenderers: TileRenderers;
   tabRenderers?: TabRenderers;
-  layout: TileLayoutConfig;
+  layout: TileLayoutConfig | null;
+  activeTabState?: ActiveTabState;
+  onLayoutChange?: (layout: TileLayoutConfig | null) => void;
+  onActiveTabStateChange?: (state: ActiveTabState) => void;
 };
 
 type TileLayoutContextValue = TileLayout;
@@ -112,15 +116,26 @@ export default class TileLayout extends React.Component<
   private disposeFns: Function[] = [];
   private rootRef = React.createRef<HTMLDivElement>();
 
+  activeTabState: ActiveTabState;
+
   constructor(props: TileLayoutProps) {
     super(props);
     this.state = {
       layout: {
         ...props.layout,
-        id: props.layout.id || uuid(),
+        id: props.layout?.id || uuid(),
       },
       isDraggingDescendant: false,
     };
+    this.activeTabState = props.activeTabState || {};
+  }
+
+  notifyActiveTabIndex(id: LayoutItemId, index: number) {
+    const oldIndex = this.activeTabState[id];
+    this.activeTabState[id] = index;
+    if (this.props.onActiveTabStateChange && oldIndex !== index) {
+      this.props.onActiveTabStateChange(this.activeTabState);
+    }
   }
 
   componentDidMount() {
@@ -139,13 +154,30 @@ export default class TileLayout extends React.Component<
     );
   }
 
-  componentDidUpdate(prevProps: TileLayoutProps) {
+  shouldComponentUpdate(prevProps: TileLayoutProps) {
+    if (
+      prevProps.layout !== this.props.layout &&
+      this.state.layout === this.props.layout
+    ) {
+      // User passed in new layout, but it already matches the state,
+      // which is ultimately what gets rendered.
+      return false;
+    }
+    return true;
+  }
+
+  componentDidUpdate(prevProps: TileLayoutProps, prevState: TileLayoutState) {
     if (prevProps.tileRenderers !== this.props.tileRenderers) {
       // TODO: Would it hurt to allow this prop to change?
       console.error(
         'TileLayout `renderers` prop changed. TileLayout does not currently support changing the renderer configuration.' +
           ' Use a global constant, `useMemo`, or a readonly instance field to avoid changing the value of this prop.'
       );
+    }
+
+    if (this.props.onLayoutChange && prevState.layout !== this.state.layout) {
+      this.props.onLayoutChange(this.state.layout);
+      console.log('onLayoutChange');
     }
   }
 
@@ -298,7 +330,7 @@ export default class TileLayout extends React.Component<
           )}
           ref={this.rootRef}
         >
-          <Tile config={this.state.layout} />
+          <Tile layout={this} config={this.state.layout} />
         </div>
       </TileLayoutContext.Provider>
     );
@@ -307,6 +339,7 @@ export default class TileLayout extends React.Component<
 
 // Omitting the "id" prop to avoid confusion with `config.id`.
 type TileProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
+  layout: TileLayout;
   config: TileConfig | TileGroupConfig;
   parent?: Tile;
 };
@@ -328,10 +361,8 @@ type TileState = DraggableState &
 /**
  * The Tile component renders a TileGroupConfig, TileConfig, or TileTabGroupConfig.
  */
+// TODO: Break these up into separate components?
 class Tile extends React.Component<TileProps, TileState> {
-  static contextType = TileLayoutContext;
-  context!: React.ContextType<typeof TileLayoutContext>;
-
   state: TileState = {};
 
   rootRef = React.createRef<HTMLDivElement>();
@@ -343,8 +374,16 @@ class Tile extends React.Component<TileProps, TileState> {
   dropzone: HTMLDivElement | null = null;
   private dropzoneDisposers: DisposeFns = [];
 
+  constructor(props: TileProps) {
+    super(props);
+    const { config } = props;
+    if (isTabGroup(config) && config.id! in this.props.layout.activeTabState) {
+      this.state.activeTabIndex = this.props.layout.activeTabState[config.id!];
+    }
+  }
+
   componentDidMount() {
-    this.context.registerTile(this);
+    this.props.layout.registerTile(this);
 
     this.updateDropzoneListeners();
     this.updateActiveTabIndex();
@@ -355,12 +394,17 @@ class Tile extends React.Component<TileProps, TileState> {
     this.updateActiveTabIndex();
   }
 
+  setActiveTabIndex(index: number) {
+    this.setState({ activeTabIndex: index });
+    this.props.layout.notifyActiveTabIndex(this.props.config.id!, index);
+  }
+
   private updateActiveTabIndex() {
     if (isTabGroup(this.props.config)) {
       if (this.state.activeTabIndex === undefined) {
-        this.setState({ activeTabIndex: 0 });
+        this.setActiveTabIndex(0);
       } else if (this.state.activeTabIndex >= this.props.config.tabs.length) {
-        this.setState({ activeTabIndex: this.props.config.tabs.length - 1 });
+        this.setActiveTabIndex(this.props.config.tabs.length - 1);
       }
     }
   }
@@ -375,7 +419,7 @@ class Tile extends React.Component<TileProps, TileState> {
   }
 
   componentWillUnmount() {
-    this.context.unregisterTile(this);
+    this.props.layout.unregisterTile(this);
     this.borderDragController.dispose();
     disposeAll(this.disposers);
     disposeAll(this.dropzoneDisposers);
@@ -390,7 +434,7 @@ class Tile extends React.Component<TileProps, TileState> {
     }
     for (let i = 0; i < config.tabs.length; i++) {
       if (config.tabs[i].id === id) {
-        this.setState({ activeTabIndex: i });
+        this.setActiveTabIndex(i);
         return;
       }
     }
@@ -410,7 +454,7 @@ class Tile extends React.Component<TileProps, TileState> {
 
   onDrop(e: DragEvent) {
     console.debug('Tile::onDrop');
-    this.context!.handleDrop(e, this);
+    this.props.layout.handleDrop(e, this);
   }
 
   private lengthsAtDragStartPx = { a: 0, b: 0 };
@@ -423,8 +467,8 @@ class Tile extends React.Component<TileProps, TileState> {
       config.direction === 'row' ? 'ew-resize' : 'ns-resize'
     );
     const [a, b] = config.items;
-    const containerA = this.context.tilesById.get(a.id!)!.rootRef.current!;
-    const containerB = this.context.tilesById.get(b.id!)!.rootRef.current!;
+    const containerA = this.props.layout.tilesById.get(a.id!)!.rootRef.current!;
+    const containerB = this.props.layout.tilesById.get(b.id!)!.rootRef.current!;
 
     // Record initial sizes of the two tiles so we can later calculate the weights.
     if (config.direction === 'row') {
@@ -464,8 +508,8 @@ class Tile extends React.Component<TileProps, TileState> {
     b.weight = newLengths.b;
 
     // Assign weights to children with manual DOM mutation for smoothness.
-    const tileA = this.context.tilesById.get(a.id!)!;
-    const tileB = this.context.tilesById.get(b.id!)!;
+    const tileA = this.props.layout.tilesById.get(a.id!)!;
+    const tileB = this.props.layout.tilesById.get(b.id!)!;
     tileA.rootRef.current!.style.flexGrow = String(a.weight);
     tileB.rootRef.current!.style.flexGrow = String(b.weight);
 
@@ -514,7 +558,11 @@ class Tile extends React.Component<TileProps, TileState> {
         >
           {config.items.map((item, i) => (
             <React.Fragment key={item.id}>
-              <Tile parent={this} config={item}></Tile>
+              <Tile
+                layout={this.props.layout}
+                parent={this}
+                config={item}
+              ></Tile>
               {i < config.items.length - 1 && (
                 <div
                   onMouseDown={this.onBorderMouseDown.bind(this)}
@@ -560,10 +608,11 @@ class Tile extends React.Component<TileProps, TileState> {
                 >
                   {/* TODO: Render custom tab strip here instead? */}
                   {/* TODO: Handle vertical vs. horizontal orientation */}
-                  <TabStrip config={config}>
+                  <TabStrip layout={this.props.layout} config={config}>
                     {config.tabs.map((tab, i) => {
                       return (
                         <Tab
+                          layout={this.props.layout}
                           key={tab.id}
                           parentTile={this}
                           config={tab}
@@ -645,6 +694,7 @@ class Tile extends React.Component<TileProps, TileState> {
 }
 
 type TabProps = {
+  layout: TileLayout;
   parentTile: Tile;
   config: TileConfig;
   index: number;
@@ -661,9 +711,6 @@ export const TabContext = React.createContext<TabContextValue>(
 
 class Tab extends React.Component<TabProps, TabState> {
   state: TabState = {};
-
-  static contextType = TileLayoutContext;
-  context!: React.ContextType<typeof TileLayoutContext>;
 
   rootRef = React.createRef<HTMLDivElement>();
 
@@ -706,11 +753,11 @@ class Tab extends React.Component<TabProps, TabState> {
   }
 
   onDrop(e: DragEvent) {
-    this.context!.handleDrop(e, this);
+    this.props.layout.handleDrop(e, this);
   }
 
   private onMouseDown() {
-    this.props.parentTile.setState({ activeTabIndex: this.props.index });
+    this.props.parentTile.setActiveTabIndex(this.props.index);
   }
 
   render() {
@@ -735,6 +782,7 @@ class Tab extends React.Component<TabProps, TabState> {
 
 // Omitting "id" to avoid confusion with `props.config.id`.
 type TabStripProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
+  layout: TileLayout;
   config: TileTabGroupConfig;
 };
 
@@ -785,7 +833,7 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
   }
 
   onDrop(e: DragEvent) {
-    this.context!.handleDrop(e, this);
+    this.props.layout.handleDrop(e, this);
   }
 
   render() {
