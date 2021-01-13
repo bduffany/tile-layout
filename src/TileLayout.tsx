@@ -216,6 +216,9 @@ export default class TileLayout extends React.Component<
       if (dropTarget.dropRegion === 'cover') {
         // If tab is already contained in this tab group, don't
         // insert at all.
+        // TODO: remove the tab from the source, if it's not the same
+        // as the dest, meaning that two identical tab instances are
+        // merged.
         const toConfig = to.props.config;
         if (isTabGroup(toConfig)) {
           for (const tab of toConfig.tabs) {
@@ -223,9 +226,6 @@ export default class TileLayout extends React.Component<
           }
         }
 
-        // TODO: this probably needs to be `to.parent` which is the tab group.
-        // When dropping a tab onto the center of a tile, we actually want
-        // to drop within the parent tab group.
         let tabIndex = -1;
         if (to.state.activeTabIndex !== undefined) {
           tabIndex = to.state.activeTabIndex + 1;
@@ -345,22 +345,23 @@ class Tile extends React.Component<TileProps, TileState> {
 
   componentDidMount() {
     this.context.registerTile(this);
-    this.updateDropzoneListeners();
 
+    this.updateDropzoneListeners();
     this.updateActiveTabIndex();
   }
 
   componentDidUpdate() {
-    this.updateActiveTabIndex();
     this.updateDropzoneListeners();
+    this.updateActiveTabIndex();
   }
 
   private updateActiveTabIndex() {
-    if (
-      isTabGroup(this.props.config) &&
-      (this.state.activeTabIndex || 0) >= this.props.config.tabs.length
-    ) {
-      this.setState({ activeTabIndex: this.props.config.tabs.length - 1 });
+    if (isTabGroup(this.props.config)) {
+      if (this.state.activeTabIndex === undefined) {
+        this.setState({ activeTabIndex: 0 });
+      } else if (this.state.activeTabIndex >= this.props.config.tabs.length) {
+        this.setState({ activeTabIndex: this.props.config.tabs.length - 1 });
+      }
     }
   }
 
