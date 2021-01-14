@@ -21,6 +21,7 @@ import { v4 as uuid } from 'uuid';
 import DragController, { DragControllerEvent } from './util/DragController';
 import { classNames } from './util/dom';
 import {
+  beginDrag,
   draggable,
   DraggableState,
   dragListeners,
@@ -28,13 +29,21 @@ import {
   droppedComponent,
   dropzone,
   DropzoneState,
+  endDrag,
   preventNextDrag,
 } from './util/dragAndDrop';
 import DebugValue from './util/DebugValue';
 import { disposeAll, DisposeFns, eventListener } from './util/dispose';
 import { HorizontalScrollbar } from './util/Scrollbar';
 import { ContentHost, ContentOutlet } from './content';
-import * as events from './events';
+import namespace from './util/namespace';
+import { customEventFactory } from './util/events';
+
+const defineEvent = namespace('TileLayout').wrap(customEventFactory);
+
+export const borderDragStart = defineEvent('borderDragStart');
+export const borderDrag = defineEvent('borderDrag');
+export const borderDragEnd = defineEvent('borderDragEnd');
 
 export type TileRenderer<T extends LayoutItemId = string> = (
   id: T
@@ -142,16 +151,26 @@ export default class TileLayout extends React.Component<
     this.disposeFns.push(
       eventListener(
         this.rootRef.current!,
-        // TODO: namespace these events
-        'dragAndDrop:beginDrag',
+        beginDrag.type,
         this.onDescendantDragStart.bind(this)
       ),
       eventListener(
         this.rootRef.current!,
-        'dragAndDrop:endDrag',
+        endDrag.type,
         this.onDescendantDragEnd.bind(this)
+      ),
+      eventListener(
+        this.rootRef.current!,
+        borderDragEnd.type,
+        this.onBorderDragEnd.bind(this)
       )
     );
+  }
+
+  private onBorderDragEnd() {
+    if (this.props.onLayoutChange) {
+      this.props.onLayoutChange(this.props.layout);
+    }
   }
 
   shouldComponentUpdate(prevProps: TileLayoutProps) {
@@ -485,7 +504,7 @@ class Tile extends React.Component<TileProps, TileState> {
 
     controllerDragStart(e.nativeEvent);
 
-    this.rootRef.current!.dispatchEvent(events.dragBorderStart());
+    this.rootRef.current!.dispatchEvent(borderDragStart());
   }
 
   private onDragBorder({
@@ -513,11 +532,11 @@ class Tile extends React.Component<TileProps, TileState> {
     tileA.rootRef.current!.style.flexGrow = String(a.weight);
     tileB.rootRef.current!.style.flexGrow = String(b.weight);
 
-    this.rootRef.current!.dispatchEvent(events.dragBorder());
+    this.rootRef.current!.dispatchEvent(borderDrag());
   }
 
   private onReleaseBorder() {
-    this.rootRef.current!.dispatchEvent(events.dragBorderEnd());
+    this.rootRef.current!.dispatchEvent(borderDragEnd());
   }
 
   render() {

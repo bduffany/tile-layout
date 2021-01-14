@@ -12,6 +12,13 @@
 import { eventListener } from './dispose';
 import WeakBiMap from './WeakBiMap';
 import uuid from './uuid';
+import namespace from './namespace';
+import { customEventFactory } from './events';
+
+const defineEvent = namespace('dragAndDrop').wrap(customEventFactory);
+
+export const beginDrag = defineEvent('beginDrag');
+export const endDrag = defineEvent('endDrag');
 
 const DEBUG = false;
 
@@ -175,9 +182,7 @@ function onDragStart(
   debugEvent(e);
 
   draggedComponent = this;
-  e.target!.dispatchEvent(
-    new CustomEvent('dragAndDrop:beginDrag', { bubbles: true })
-  );
+  e.target!.dispatchEvent(beginDrag());
 
   e.stopPropagation();
   this.setState({ isDragging: true });
@@ -217,9 +222,7 @@ function onDragEnd(
 
   if (draggedComponent) {
     draggedComponent = null;
-    e.target?.dispatchEvent(
-      new CustomEvent('dragAndDrop:endDrag', { bubbles: true })
-    );
+    e.target?.dispatchEvent(endDrag());
   }
 
   this.setState({ isDragging: false });
@@ -326,9 +329,7 @@ function onDrop(this: React.Component & DropzoneReactCallbacks, e: DragEvent) {
   if (!draggedComponent) return;
 
   draggedComponent = null;
-  e.target!.dispatchEvent(
-    new CustomEvent('dragAndDrop:endDrag', { bubbles: true })
-  );
+  e.target!.dispatchEvent(endDrag());
 
   this.setState({ isDraggingOver: false });
   if (this.onDrop) {

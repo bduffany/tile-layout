@@ -7,6 +7,14 @@ import { useJsonLocalStorage } from './util/useLocalStorage';
 
 window.React = React;
 
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    localStorage['layout'] = '';
+    localStorage['activeTabState'] = '';
+    window.location.reload();
+  }
+});
+
 // TODO: consider using the plugin pattern for this instead, or
 // make sure it works with `React.lazy`
 // TODO: consider consolidating tileRenderers & tabRenderers.
