@@ -15,15 +15,12 @@ async function waitForElement(id: any) {
   });
 }
 
-export type InletProps<IdType, DataType> = {
+export type InletProps<IdType> = {
   id?: IdType | null;
-  data?: DataType | null;
-  renderer: (data?: DataType | null) => React.ReactNode;
+  children: React.ReactNode;
 };
 
-export class Inlet<IdType, DataType> extends React.PureComponent<
-  InletProps<IdType, DataType>
-> {
+export class Inlet<IdType> extends React.PureComponent<InletProps<IdType>> {
   private containerRef = React.createRef<HTMLDivElement>();
 
   componentDidMount() {
@@ -53,12 +50,12 @@ export class Inlet<IdType, DataType> extends React.PureComponent<
 
   render() {
     const {
-      props: { id, data, renderer },
+      props: { children },
       containerRef,
     } = this;
     return (
       <div style={{ display: 'none' }} ref={containerRef}>
-        {id && <div>{renderer(data)}</div>}
+        <div style={{ height: 'inherit' }}>{children}</div>
       </div>
     );
   }
@@ -82,5 +79,12 @@ export const Outlet = function <T>({ id, ...props }: OutletProps<T>) {
       cancelled = true;
     };
   }, [id]);
-  return <div ref={containerRef} {...props} data-outlet-id={id} />;
+  return (
+    <div
+      ref={containerRef}
+      {...props}
+      data-outlet-id={id}
+      style={{ height: '100%' }}
+    />
+  );
 };

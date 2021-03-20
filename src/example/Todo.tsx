@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useState } from 'react';
-import TileLayout, { TileLayoutContext, TabCloseButton } from '../TileLayout';
+import Tab from './Tab';
 import css from './Todo.module.css';
 import { TodosApiContext } from './TodosApi';
 
@@ -55,17 +55,5 @@ export function TodoTab({ id }: TodoTabProps) {
   const todosApi = useContext(TodosApiContext);
   const todoList = todosApi.getTodoList(id)!;
 
-  return (
-    <div className={css.todoTab}>
-      <span>{todoList.title}</span>
-      <TabCloseButton
-        tabId={id}
-        className={css.tabCloseButton}
-        aria-label="close"
-        title="Close"
-      >
-        <span className={css.x}>×</span>
-      </TabCloseButton>
-    </div>
-  );
+  return <Tab id={id}>{todoList.title}</Tab>;
 }

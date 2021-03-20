@@ -132,7 +132,6 @@ let cancelNextDrag = false;
 let isMouseOutsideWindow = false;
 document.addEventListener('mouseleave', (e) => {
   isMouseOutsideWindow = true;
-  console.log('mouseleave');
 });
 document.addEventListener('dragleave', () => {
   isMouseOutsideWindow = true;
@@ -158,7 +157,7 @@ function hoveredDropzoneElement(e: DragEvent) {
   return closestDropzoneAncestor(hoveredElement as Element);
 }
 
-function hoveredDropzoneComponent(e: DragEvent) {
+export function hoveredDropzoneComponent(e: DragEvent) {
   if (isMouseOutsideWindow) return null;
   return componentDropzoneId
     .inverse()

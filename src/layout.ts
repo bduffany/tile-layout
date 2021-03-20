@@ -1,7 +1,7 @@
 import { DropRegion } from './util/geometry';
 import { v4 as uuid } from 'uuid';
 
-export type LayoutItemId = string | number;
+export type LayoutItemId = string;
 
 // TODO: Restructure so that TileConfig and TileTabGroupConfig are disjoint,
 // and TileGroupConfig's children are of type TileConfig | TileTabGroupConfig.

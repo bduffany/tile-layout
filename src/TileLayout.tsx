@@ -45,27 +45,25 @@ export const borderDragStart = defineEvent('borderDragStart');
 export const borderDrag = defineEvent('borderDrag');
 export const borderDragEnd = defineEvent('borderDragEnd');
 
-export type TileRenderer<T extends LayoutItemId = string> = (
-  id: T
-) => React.ReactNode;
+export type TileContentComponentProps = {
+  id: LayoutItemId;
+};
 
-export type TileRenderers<T extends LayoutItemId = string> = Record<
-  string,
-  TileRenderer<T>
->;
+export type TileContentComponent = React.ComponentType<TileContentComponentProps>;
 
-export type TabRenderer<T extends LayoutItemId = string> = (
-  id: T
-) => React.ReactNode;
+export type TileContentComponents = Record<string, TileContentComponent>;
 
-export type TabRenderers<T extends LayoutItemId = string> = Record<
-  string,
-  TabRenderer<T>
->;
+export type TabContentComponentProps = {
+  id: LayoutItemId;
+};
+
+export type TabContentComponent = React.ComponentType<TabContentComponentProps>;
+
+export type TabContentComponents = Record<string, TabContentComponent>;
 
 export type TileLayoutProps = JSX.IntrinsicElements['div'] & {
-  tileRenderers: TileRenderers;
-  tabRenderers?: TabRenderers;
+  tileComponents: TileContentComponents;
+  tabComponents?: TabContentComponents;
   layout: TileLayoutConfig | null;
   activeTabState?: ActiveTabState;
   onLayoutChange?: (layout: TileLayoutConfig | null) => void;
@@ -186,10 +184,10 @@ export default class TileLayout extends React.Component<
   }
 
   componentDidUpdate(prevProps: TileLayoutProps, prevState: TileLayoutState) {
-    if (prevProps.tileRenderers !== this.props.tileRenderers) {
+    if (prevProps.tileComponents !== this.props.tileComponents) {
       // TODO: Would it hurt to allow this prop to change?
       console.error(
-        'TileLayout `renderers` prop changed. TileLayout does not currently support changing the renderer configuration.' +
+        'TileLayout `tileComponents` prop changed. TileLayout does not currently support changing the component configuration.' +
           ' Use a global constant, `useMemo`, or a readonly instance field to avoid changing the value of this prop.'
       );
     }
@@ -326,7 +324,7 @@ export default class TileLayout extends React.Component<
       return <></>;
     }
 
-    const { tileRenderers, tabRenderers } = this.props;
+    const { tileComponents, tabComponents } = this.props;
 
     return (
       <TileLayoutContext.Provider value={this}>
@@ -335,8 +333,8 @@ export default class TileLayout extends React.Component<
         {getContentContainerIds(this.props.layout).map((containerId) => (
           <ContentHost
             key={contentContainerIdKey(containerId)}
-            renderers={
-              containerId.container === 'tab' ? tabRenderers! : tileRenderers
+            components={
+              containerId.container === 'tab' ? tabComponents! : tileComponents
             }
             {...containerId}
           />
@@ -605,10 +603,10 @@ class Tile extends React.Component<TileProps, TileState> {
           {(layout) => {
             if (
               process.env.NODE_ENV === 'development' &&
-              !layout.props.tabRenderers
+              !layout.props.tabComponents
             ) {
               throw new Error(
-                'Attempted to render tabs without providing `tabRenderers`.'
+                'Attempted to render tabs without providing `tabComponents`.'
               );
             }
 
@@ -680,9 +678,9 @@ class Tile extends React.Component<TileProps, TileState> {
     return (
       <TileLayoutContext.Consumer>
         {(layout) => {
-          const renderers = layout.props.tileRenderers;
-          const renderer = renderers[tile.type as string].bind(renderers);
-          const content = renderer(tile.id as any);
+          const components = layout.props.tileComponents;
+          const Component = components[tile.type as string];
+          const content = <Component id={tile.id as any} />;
 
           if (!content) return null;
 

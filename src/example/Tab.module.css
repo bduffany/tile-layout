@@ -1,20 +1,10 @@
-.tileHeader {
-  background: #eee;
-  padding: 8px;
-  box-sizing: border-box;
-  cursor: grab;
-}
-
-.tileContent {
-  padding: 8px;
-  box-sizing: border-box;
-}
-
-.todoTab {
+.tab {
   display: flex;
+  height: 100%;
+  align-items: center;
 }
 
-.tabCloseButton {
+.closeButton {
   appearance: none;
   background: none;
   border: none;
@@ -36,13 +26,13 @@
   transition: all 120ms ease-out;
 }
 
-.tabCloseButton:hover {
+.closeButton:hover {
   background: rgba(255, 255, 255, 0.05);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.27),
     0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
 
-.tabCloseButton:active {
+.closeButton:active {
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.27) inset;
   background: transparent;
 }

@@ -1,0 +1,11 @@
+.editorVisible {
+  opacity: 1;
+}
+
+.editorLoading {
+  opacity: 0;
+}
+
+.editor {
+  transition: all 50ms ease;
+}

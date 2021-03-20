@@ -1,0 +1,11 @@
+.tileHeader {
+  background: #eee;
+  padding: 8px;
+  box-sizing: border-box;
+  cursor: grab;
+}
+
+.tileContent {
+  padding: 8px;
+  box-sizing: border-box;
+}

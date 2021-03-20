@@ -1,0 +1,18 @@
+☐ Improvement: Clean up API for specifying tile content / IDs etc.
+☐ Feature: Vertically oriented tab strip
+☐ Improvement: Allow styling tab based on whether it's focused
+☐ Feature: Double-click to add new tab
+☐ Improvement: Lazy rendering of tabs
+☐ Test: Render Monaco w/ "dirty state" editor & tabs
+☐ Feature: Empty state renderer, which has access to TileLayoutContext API for creating new tabs
+☐ Feature: Allow dragging entire tab groups
+☐ Improvement: Flatten groups that run in the same direction
+☐ Feature: When double-clicking a border, evenly distribute weight
+☐ Bug: When dropping a tab into a tabGroup already containing a clone of that tab, delete from source tabGroup
+☐ Bug: Layout sometimes flickers when re-rendering
+☐ Bug: If making border color between tabs transparent, the tab strip dropzone area winds up rendering in that area
+☐ Feature: 3-dot menu with "Close all" option at the top right.
+☐ Improvement: When double-clicking a tab, maximize or restore. (See VS Code behavior)
+☐ Bug: When tile is very tiny, can only drop other tiles on top region.
+☐ Improvement: When window is very small, disallow resizing, like VS Code does.
+☐ Feature: tab wrapping (instead of scrolling)
