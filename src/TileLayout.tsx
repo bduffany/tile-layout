@@ -3,6 +3,7 @@ import {
   ActiveTabState,
   applyDrop,
   applyRemove,
+  ContentContainerId,
   contentContainerIdKey,
   DropTarget,
   getContentContainerIds,
@@ -38,6 +39,7 @@ import { HorizontalScrollbar } from './util/Scrollbar';
 import { ContentHost, ContentOutlet } from './content';
 import namespace from './util/namespace';
 import { customEventFactory } from './util/events';
+import IRegistry from './util/Registry';
 
 const defineEvent = namespace('TileLayout').wrap(customEventFactory);
 
@@ -119,9 +121,11 @@ export default class TileLayout extends React.Component<
   state: TileLayoutState;
 
   tilesById = new Map<LayoutItemId, Tile>();
+  tabsById = new Map<LayoutItemId, Tab>();
 
   private disposeFns: Function[] = [];
   private rootRef = React.createRef<HTMLDivElement>();
+  private contentHostRegistry = new ContentHostRegistry();
 
   activeTabState: ActiveTabState;
 
@@ -135,6 +139,14 @@ export default class TileLayout extends React.Component<
       isDraggingDescendant: false,
     };
     this.activeTabState = props.activeTabState || {};
+  }
+
+  /** Causes the tab for the given component type to re-render. */
+  updateTab(type: string, id: LayoutItemId) {
+    const tabContentHost = this.contentHostRegistry.values.get(
+      contentContainerIdKey({ type, id, container: 'tab' })!
+    );
+    tabContentHost?.forceUpdate();
   }
 
   notifyActiveTabIndex(id: LayoutItemId, index: number) {
@@ -221,11 +233,19 @@ export default class TileLayout extends React.Component<
   }
 
   registerTile(tile: Tile) {
-    this.tilesById.set(tile.props.config.id as LayoutItemId, tile);
+    this.tilesById.set(tile.props.config.id!, tile);
   }
 
   unregisterTile(tile: Tile) {
-    this.tilesById.delete(tile.props.config.id as LayoutItemId);
+    this.tilesById.delete(tile.props.config.id!);
+  }
+
+  registerTab(tab: Tab) {
+    this.tabsById.set(tab.props.config.id!, tab);
+  }
+
+  unregisterTab(tab: Tab) {
+    this.tabsById.set(tab.props.config.id!, tab);
   }
 
   handleDrop(e: DragEvent, to: IDropzoneComponent) {
@@ -326,13 +346,16 @@ export default class TileLayout extends React.Component<
 
     const { tileComponents, tabComponents } = this.props;
 
+    const contentContainerIds = getContentContainerIds(this.props.layout);
+
     return (
       <TileLayoutContext.Provider value={this}>
         {/* TODO: Better performance: only render visible content on the first render.
             Then render contents as they are requested, e.g. by clicking a tab. (?) */}
-        {getContentContainerIds(this.props.layout).map((containerId) => (
+        {contentContainerIds.map((containerId) => (
           <ContentHost
             key={contentContainerIdKey(containerId)}
+            registry={this.contentHostRegistry}
             components={
               containerId.container === 'tab' ? tabComponents! : tileComponents
             }
@@ -351,6 +374,19 @@ export default class TileLayout extends React.Component<
         </div>
       </TileLayoutContext.Provider>
     );
+  }
+}
+
+class ContentHostRegistry
+  implements IRegistry<ContentContainerId, ContentHost> {
+  values = new Map<string, ContentHost>();
+
+  register(id: ContentContainerId, value: ContentHost) {
+    this.values.set(contentContainerIdKey(id)!, value);
+  }
+
+  unregister(id: ContentContainerId) {
+    this.values.delete(contentContainerIdKey(id)!);
   }
 }
 
@@ -635,14 +671,7 @@ class Tile extends React.Component<TileProps, TileState> {
                           config={tab}
                           index={i}
                           isActive={i === activeTabIndex}
-                        >
-                          <ContentOutlet
-                            key={tab.id}
-                            container="tab"
-                            type={tab.type}
-                            id={tab.id}
-                          />
-                        </Tab>
+                        />
                       );
                     })}
                   </TabStrip>
@@ -737,6 +766,8 @@ class Tab extends React.Component<TabProps, TabState> {
   private root: HTMLDivElement | null = null;
 
   componentDidMount() {
+    this.props.layout.registerTab(this);
+
     // Using native event listeners instead of React synthetic events because
     // React doesn't bubble synthetic events that occur within the user-rendered
     // tab, which is not part of the component subtree.
@@ -756,6 +787,8 @@ class Tab extends React.Component<TabProps, TabState> {
   }
 
   componentWillUnmount() {
+    this.props.layout.unregisterTab(this);
+
     disposeAll(this.disposers);
     disposeAll(this.dragAndDropDisposers);
   }
@@ -778,12 +811,14 @@ class Tab extends React.Component<TabProps, TabState> {
   }
 
   render() {
-    const { children, isActive } = this.props;
+    const { config: tab, isActive } = this.props;
 
     return (
       <div
         ref={this.rootRef}
         className={classNames(
+          'TileLayout__Tab',
+          isActive && 'TileLayout__Tab--active',
           css.tabContainer,
           isActive && css.activeTab,
           this.state.isDraggingOver && css.draggingOtherTileOver
@@ -791,7 +826,12 @@ class Tab extends React.Component<TabProps, TabState> {
         {...draggable(this)}
         {...dropzone(this)}
       >
-        {children}
+        <ContentOutlet
+          key={tab.id}
+          container="tab"
+          type={tab.type!}
+          id={tab.id!}
+        />
       </div>
     );
   }
@@ -881,7 +921,10 @@ export type TabCloseButtonProps<
   T extends keyof JSX.IntrinsicElements
 > = JSX.IntrinsicElements[T] & {
   as?: T;
-  confirm?: (id: LayoutItemId) => boolean | Promise<boolean>;
+  confirm?:
+    | ((id: LayoutItemId) => boolean | Promise<boolean>)
+    | null
+    | undefined;
   // TODO: see if we can make this optional. Traverse up the DOM to find the
   // tab ID on the DOM element (as a data- attribute).
   tabId: LayoutItemId;
@@ -932,6 +975,7 @@ export function TabCloseButton<T extends keyof JSX.IntrinsicElements>({
   as,
   confirm,
   tabId,
+  className,
   onClick,
   ...props
 }: TabCloseButtonProps<T>) {
@@ -973,6 +1017,7 @@ export function TabCloseButton<T extends keyof JSX.IntrinsicElements>({
   );
   return React.createElement((as || 'button') as string, {
     ref,
+    className,
     ...props,
     onClick: onClick_,
   });

@@ -4,10 +4,16 @@ import MonacoEditor from '@monaco-editor/react';
 import Tab from './Tab';
 import OneMonokai from './OneMonokai.json';
 import css from './Editor.module.css';
+import { TileLayoutContext } from '../TileLayout';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 export default function Editor({ id }: { id: string }) {
-  const [visible, setVisible] = React.useState(false);
+  const [
+    editor,
+    setEditor,
+  ] = React.useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const api = React.useContext(EditorApiContext);
+  const layout = React.useContext(TileLayoutContext);
 
   const state = api.getEditorState(id);
 
@@ -15,17 +21,29 @@ export default function Editor({ id }: { id: string }) {
     (editor, monaco) => {
       monaco.editor.defineTheme('OneMonokai', OneMonokai);
       monaco.editor.setTheme('OneMonokai');
-      setVisible(true);
+      setEditor(editor);
     },
-    [setVisible]
+    [setEditor]
   );
+
+  React.useEffect(() => {
+    if (editor) {
+      const disposable = editor.getModel()!.onDidChangeContent(() => {
+        if (state && !state.dirty) {
+          api.setDirty(id);
+          layout.updateTab('Editor', id);
+        }
+      });
+      return () => disposable.dispose();
+    }
+  }, [editor, state, api, id, layout]);
 
   if (!state) return <div></div>;
 
   return (
     <div
       className={`${css.editor} ${
-        visible ? css.editorVisible : css.editorLoading
+        editor ? css.editorVisible : css.editorLoading
       }`}
       style={{ height: 'inherit' }}
     >
@@ -48,5 +66,9 @@ export function EditorTab({ id }: { id: string }) {
   const editor = api.getEditorState(id);
   if (!editor) return null;
 
-  return <Tab id={id}>{editor.title}</Tab>;
+  return (
+    <Tab id={id} dirty={editor.dirty}>
+      {editor.title}
+    </Tab>
+  );
 }
