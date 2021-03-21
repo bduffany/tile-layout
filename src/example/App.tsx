@@ -6,6 +6,7 @@ import TileLayout, {
   TabContentComponents,
   TileContentComponents,
 } from '../TileLayout';
+import FileTree, { FileTreeTab } from './FileTree';
 import Todo, { TodoTab } from './Todo';
 import { useJsonLocalStorage } from '../util/useLocalStorage';
 import Editor, { EditorTab } from './Editor';
@@ -24,42 +25,67 @@ window.addEventListener('keydown', (e) => {
 });
 
 // TODO: consider consolidating tileRenderers & tabRenderers.
+// Maybe specify "Tab" as a static prop of the tile?
 const tileComponents: TileContentComponents = {
   Todo,
   Editor,
   Terminal,
+  FileTree,
 };
 
 const tabComponents: TabContentComponents = {
   Todo: TodoTab,
   Editor: EditorTab,
   Terminal: TerminalTab,
+  FileTree: FileTreeTab,
 };
 
 const exampleLayout: TileLayoutConfig = {
-  direction: 'column',
+  direction: 'row',
   items: [
+    // Sidebar
     {
-      direction: 'row',
-      items: [
+      weight: 1,
+      direction: 'vertical',
+      id: '6f7d9552-c160-4507-8590-e11b06849df2',
+      tabs: [
         {
-          id: '17b982a7-fa9c-4706-8147-2fd719d7367a',
-          tabs: [
-            { id: 'EDITOR#1', type: 'Editor' },
-            { id: 'TODOLIST#1', type: 'Todo' },
-            { id: 'TODOLIST#3', type: 'Todo' },
-            { id: 'TODOLIST#4', type: 'Todo' },
-          ],
+          type: 'FileTree',
+          id: '1',
         },
         {
-          id: '7a6733bf-a917-4c99-91b7-7892b71156a9',
-          tabs: [{ id: 'TODOLIST#2', type: 'Todo' }],
+          type: 'Todo',
+          id: 'TODOLIST#4',
         },
       ],
     },
+    // Main content
     {
-      id: '9dd7271b-4ad9-47b5-a376-03ac5d902416',
-      tabs: [{ id: 'TERMINAL#1', type: 'Terminal' }],
+      weight: 3.5,
+      direction: 'column',
+      items: [
+        {
+          direction: 'row',
+          items: [
+            {
+              id: '17b982a7-fa9c-4706-8147-2fd719d7367a',
+              tabs: [
+                { id: 'EDITOR#1', type: 'Editor' },
+                { id: 'TODOLIST#1', type: 'Todo' },
+                { id: 'TODOLIST#3', type: 'Todo' },
+              ],
+            },
+            {
+              id: '7a6733bf-a917-4c99-91b7-7892b71156a9',
+              tabs: [{ id: 'TODOLIST#2', type: 'Todo' }],
+            },
+          ],
+        },
+        {
+          id: '9dd7271b-4ad9-47b5-a376-03ac5d902416',
+          tabs: [{ id: 'TERMINAL#1', type: 'Terminal' }],
+        },
+      ],
     },
   ],
 };

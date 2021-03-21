@@ -14,7 +14,7 @@ export default interface IEditorApi {
 }
 
 export class FakeEditorApi implements IEditorApi {
-  private static data: Record<string, EditorState> = {
+  static data: Record<string, EditorState> = {
     'EDITOR#1': {
       title: 'library.ts',
       language: 'typescript',
@@ -25,8 +25,19 @@ export class FakeEditorApi implements IEditorApi {
     },
   };
 
+  static loadData() {
+    if (localStorage['FakeEditorData']) {
+      FakeEditorApi.data = JSON.parse(localStorage['FakeEditorData']);
+    }
+  }
+
+  static saveData() {
+    localStorage['FakeEditorData'] = JSON.stringify(FakeEditorApi.data);
+  }
+
   addEditor(id: string, state: EditorState) {
     FakeEditorApi.data[id] = state;
+    FakeEditorApi.saveData();
   }
 
   getEditorState(id: string) {
@@ -35,8 +46,11 @@ export class FakeEditorApi implements IEditorApi {
 
   setDirty(id: string, dirty: boolean = true) {
     FakeEditorApi.data[id].dirty = dirty;
+    FakeEditorApi.saveData();
   }
 }
+
+FakeEditorApi.loadData();
 
 export const EditorApiContext = React.createContext<IEditorApi>(
   new FakeEditorApi()

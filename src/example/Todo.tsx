@@ -2,58 +2,49 @@ import React, { useCallback, useContext, useState } from 'react';
 import Tab from './Tab';
 import css from './Todo.module.css';
 import { TodosApiContext } from './TodosApi';
-
-type TodoProps = {
-  id: string;
-};
+import {
+  TileContentComponentProps,
+  TabContentComponentProps,
+} from '../TileLayout';
+import { ReactComponent as CheckSquare } from './check-square.svg';
 
 // TODO: Encapsulate tab and content into a class
 // so data doesn't need to be fetched twice for each
 // content ID.
 
-const useRenderCount = function () {
-  const renderCount = React.useRef(0);
-  renderCount.current++;
-  return renderCount.current;
-};
-
-export default function Todo({ id }: TodoProps) {
+export default function Todo({ id }: TileContentComponentProps) {
   // TODO: Make this async
   const todosApi = useContext(TodosApiContext);
   const todoList = todosApi.getTodoList(id)!;
 
-  const renderCount = useRenderCount();
-  const [numClicks, setNumClicks] = useState(0);
-
-  const onButtonClick = useCallback(() => setNumClicks((n) => n + 1), [
-    setNumClicks,
-  ]);
-
-  const [value, setValue] = useState('Editable text');
-  const onChange = useCallback((e) => setValue(e.target.value), [setValue]);
-
   return (
     <div className={css.todoListPane}>
       <div className={css.tileContent}>
-        <ul>
+        <div className={css.todoListTitle}>To-do List</div>
+        <ul className={css.todoList}>
           {todoList!.todos.map(({ id, content }) => (
-            <li key={id}>{content}</li>
+            <li className={css.todoItem} key={id}>
+              {content}
+            </li>
           ))}
         </ul>
-        <div style={{ fontSize: 12 }}>Rendered {renderCount} times.</div>
-        <button onClick={onButtonClick}>Clicked {numClicks} times.</button>
-        <input value={value} onChange={onChange}></input>
       </div>
     </div>
   );
 }
 
-type TodoTabProps = { id: string };
-
-export function TodoTab({ id }: TodoTabProps) {
+export function TodoTab({ id, direction }: TabContentComponentProps) {
   // TODO: Make this async
   const todosApi = useContext(TodosApiContext);
   const todoList = todosApi.getTodoList(id)!;
 
-  return <Tab id={id}>{todoList.title}</Tab>;
+  return (
+    <Tab id={id} direction={direction}>
+      {direction === 'horizontal' ? (
+        todoList.title
+      ) : (
+        <CheckSquare stroke="white" />
+      )}
+    </Tab>
+  );
 }

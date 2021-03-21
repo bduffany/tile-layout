@@ -1,14 +1,16 @@
 import React from 'react';
+import { TileTabGroupDirection } from '../layout';
 import { TabCloseButton } from '../TileLayout';
 import css from './Tab.module.css';
 
 export type TabProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
   id: string;
+  direction?: TileTabGroupDirection;
   dirty?: boolean;
 };
 
 export default function Tab(props: TabProps) {
-  const { children, className, id, dirty, ...rest } = props;
+  const { direction, children, className, id, dirty, ...rest } = props;
 
   const confirm = React.useMemo(
     () => async () => {
@@ -20,16 +22,21 @@ export default function Tab(props: TabProps) {
 
   return (
     <div className={`${css.tab} ${className || ''}`} {...rest}>
-      {children}{' '}
-      <TabCloseButton
-        tabId={id}
-        className={css.closeButton}
-        confirm={dirty ? confirm : null}
-        aria-label="close"
-        title="Close"
-      >
-        {dirty ? <Dot /> : <X />}
-      </TabCloseButton>
+      {children}
+      {direction !== 'vertical' && (
+        <>
+          {' '}
+          <TabCloseButton
+            tabId={id}
+            className={css.closeButton}
+            confirm={dirty ? confirm : null}
+            aria-label="close"
+            title="Close"
+          >
+            {dirty ? <Dot /> : <X />}
+          </TabCloseButton>
+        </>
+      )}
     </div>
   );
 }

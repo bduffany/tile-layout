@@ -23,6 +23,7 @@ export type LayoutItem = {
 };
 
 export type TileGroupDirection = 'row' | 'column';
+export type TileTabGroupDirection = 'vertical' | 'horizontal';
 
 export type TileGroupConfig = LayoutItem & {
   /** Direction of tile layout. */
@@ -36,9 +37,16 @@ export type TileGroupConfig = LayoutItem & {
 export type ContainerType = 'tile' | 'tab';
 
 export type ContentContainerId = {
+  // Identifying props.
+
   type: string;
   container: ContainerType;
   id: LayoutItemId;
+
+  // Extra props that get passed to the component when rendering.
+  // TODO: Move this to a different object.
+
+  direction?: TileTabGroupDirection;
 };
 
 export function contentContainerIdKey({
@@ -66,14 +74,16 @@ export type TileConfig = LayoutItem & {
   // TODO: Rename `type` to something like `rendererKey` or `componentName`?
   type?: string;
 
+  direction?: TileTabGroupDirection;
   tabs?: TileTabConfig[];
   tabStripPosition?: TabStripPosition;
 };
 
 export type TileTabGroupConfig = LayoutItem & {
   // TODO: Decide whether this "type" is needed
-  type: string;
+  type?: string;
 
+  direction?: TileTabGroupDirection;
   tabs: TileTabConfig[];
 };
 
@@ -211,9 +221,13 @@ function populateContentContainerIds(
     return acc;
   }
   if (isTabGroup(config)) {
+    const direction = config.direction || 'horizontal';
     for (const tab of config.tabs) {
       const { type, id } = tab;
-      acc.push({ container: 'tab', type, id }, { container: 'tile', type, id });
+      acc.push(
+        { type, container: 'tab', id, direction },
+        { type, container: 'tile', id, direction }
+      );
     }
     return acc;
   }

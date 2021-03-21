@@ -9,3 +9,15 @@
   padding: 8px;
   box-sizing: border-box;
 }
+
+.todoListTitle {
+  font-size: 12px;
+  text-transform: uppercase;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+  padding: 8px;
+}
+
+.todoList {
+  padding-inline-start: 24px;
+  margin: 8px 0;
+}

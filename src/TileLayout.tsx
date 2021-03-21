@@ -4,7 +4,6 @@ import {
   applyAppend,
   applyDrop,
   applyRemove,
-  ContentContainerId,
   contentContainerIdKey,
   DropTarget,
   getContentContainerIds,
@@ -16,6 +15,7 @@ import {
   tileInstanceCount,
   TileLayoutConfig,
   TileTabGroupConfig,
+  TileTabGroupDirection,
 } from './layout';
 import css from './TileLayout.module.css';
 import { DropRegion, getDropRegion } from './util/geometry';
@@ -40,7 +40,6 @@ import { HorizontalScrollbar } from './util/Scrollbar';
 import { ContentHost, ContentHostRegistry, ContentOutlet } from './content';
 import namespace from './util/namespace';
 import { customEventFactory } from './util/events';
-import IRegistry from './util/Registry';
 
 const defineEvent = namespace('TileLayout').wrap(customEventFactory);
 
@@ -50,6 +49,7 @@ export const borderDragEnd = defineEvent('borderDragEnd');
 
 export type TileContentComponentProps = {
   id: LayoutItemId;
+  direction: TileTabGroupDirection;
 };
 
 export type TileContentComponent = React.ComponentType<TileContentComponentProps>;
@@ -58,6 +58,7 @@ export type TileContentComponents = Record<string, TileContentComponent>;
 
 export type TabContentComponentProps = {
   id: LayoutItemId;
+  direction: TileTabGroupDirection;
 };
 
 export type TabContentComponent = React.ComponentType<TabContentComponentProps>;
@@ -366,6 +367,7 @@ export default class TileLayout extends React.Component<
           <ContentHost
             key={contentContainerIdKey(containerId)}
             registry={this.contentHostRegistry}
+            direction={containerId.direction || 'horizontal'}
             components={
               containerId.container === 'tab' ? tabComponents! : tileComponents
             }
@@ -628,9 +630,10 @@ class Tile extends React.Component<TileProps, TileState> {
       );
     }
 
-    // Tab groups render a tab strip and a single visible tile below it.
+    // Tab groups render a tab strip and a single visible tile below it
+    // (or to the right of it, for vertical tab groups)
     if (isTabGroup(config)) {
-      // TODO: Render tab strip using `tabStripRenderer`.
+      // TODO: Render tab strip using `tabStripRenderer`
       return (
         <TileLayoutContext.Consumer>
           {(layout) => {
@@ -653,7 +656,13 @@ class Tile extends React.Component<TileProps, TileState> {
               <>
                 <div
                   ref={this.rootRef}
-                  className={classNames(css.tileTabGroup, ...classes)}
+                  className={classNames(
+                    css.tileTabGroup,
+                    config?.direction === 'vertical'
+                      ? css.verticalTabs
+                      : css.horizontalTabs,
+                    ...classes
+                  )}
                   style={style}
                 >
                   {/* TODO: Render custom tab strip here instead? */}
@@ -704,13 +713,9 @@ class Tile extends React.Component<TileProps, TileState> {
     return (
       <TileLayoutContext.Consumer>
         {(layout) => {
-          const components = layout.props.tileComponents;
-          const Component = components[tile.type as string];
-          const content = <Component id={tile.id as any} />;
+          // TODO: find a cleaner solution that doesn't involve
+          // setting an instane field inside the render function.
 
-          if (!content) return null;
-
-          // TODO: find a cleaner solution here
           this.dropzoneRef = this.rootRef;
           return (
             <div
@@ -912,6 +917,9 @@ class TabStrip
         onDoubleClick={this.onDoubleClick.bind(this)}
         className={classNames(
           css.tabStrip,
+          this.props.config.direction === 'vertical'
+            ? css.vertical
+            : css.horizontal,
           css.tileDragHandle,
           this.state.isDraggingOver && css.draggingOtherTileOver,
           this.props.className

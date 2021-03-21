@@ -1,11 +1,24 @@
 import * as React from 'react';
-import { ContentContainerId, contentContainerIdKey } from './layout';
+import {
+  ContentContainerId,
+  contentContainerIdKey,
+  TileTabGroupDirection,
+} from './layout';
 import { Inlet, Outlet } from './reparent';
 import IRegistry from './util/Registry';
 
-export type ComponentMap = Record<string, React.ComponentType<{ id: string }>>;
+export type ComponentMap = Record<
+  string,
+  React.ComponentType<{
+    id: string;
+    // TODO: Decouple from Tile layout
+    direction: TileTabGroupDirection;
+  }>
+>;
 
 export type ContentHostProps = ContentContainerId & {
+  direction: TileTabGroupDirection;
+
   registry?: IRegistry<ContentContainerId, ContentHost>;
   components: ComponentMap;
 };
@@ -22,19 +35,19 @@ export class ContentHost extends React.PureComponent<ContentHostProps> {
   }
 
   render() {
-    const { components, type, container, id } = this.props;
+    const { components, type, container, id, direction } = this.props;
 
     const ChildComponent = components[type];
     if (!ChildComponent) {
       throw new Error(
         `Could not find component "${type}". ` +
-          `Probably, there is a missing entry for "${type}" in the "components" or "tabComponents" prop of <TileLayout />.`
+          `Check if "${type}" is present in the "components" and "tabComponents" props of <TileLayout />.`
       );
     }
 
     return (
       <Inlet id={contentContainerIdKey({ type, container, id })}>
-        <ChildComponent id={id} />
+        <ChildComponent id={id} direction={direction} />
       </Inlet>
     );
   }
