@@ -1,4 +1,5 @@
 import React from 'react';
+import { ContentHost, ContentHostRegistry, ContentOutlet } from './content';
 import {
   ActiveTabState,
   applyAppend,
@@ -10,6 +11,7 @@ import {
   isGroup,
   isTabGroup,
   LayoutItemId,
+  setMissingIds,
   TileConfig,
   TileGroupConfig,
   tileInstanceCount,
@@ -18,9 +20,8 @@ import {
   TileTabGroupDirection,
 } from './layout';
 import css from './TileLayout.module.css';
-import { DropRegion, getDropRegion } from './util/geometry';
-import { v4 as uuid } from 'uuid';
-import DragController, { DragControllerEvent } from './util/DragController';
+import DebugValue from './util/DebugValue';
+import { disposeAll, DisposeFns, eventListener } from './util/dispose';
 import { classNames } from './util/dom';
 import {
   beginDrag,
@@ -34,12 +35,11 @@ import {
   endDrag,
   preventNextDrag,
 } from './util/dragAndDrop';
-import DebugValue from './util/DebugValue';
-import { disposeAll, DisposeFns, eventListener } from './util/dispose';
-import { HorizontalScrollbar } from './util/Scrollbar';
-import { ContentHost, ContentHostRegistry, ContentOutlet } from './content';
-import namespace from './util/namespace';
+import DragController, { DragControllerEvent } from './util/DragController';
 import { customEventFactory } from './util/events';
+import { DropRegion, getDropRegion } from './util/geometry';
+import namespace from './util/namespace';
+import { HorizontalScrollbar } from './util/Scrollbar';
 
 const defineEvent = namespace('TileLayout').wrap(customEventFactory);
 
@@ -134,11 +134,11 @@ export default class TileLayout extends React.Component<
 
   constructor(props: TileLayoutProps) {
     super(props);
+
+    setMissingIds(props.layout);
+
     this.state = {
-      layout: {
-        ...props.layout,
-        id: props.layout?.id || uuid(),
-      },
+      layout: props.layout,
       isDraggingDescendant: false,
     };
     this.activeTabState = props.activeTabState || {};

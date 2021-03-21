@@ -1,5 +1,6 @@
 import { DropRegion } from './util/geometry';
 import { v4 as uuid } from 'uuid';
+import TileLayout from './TileLayout';
 
 export type LayoutItemId = string;
 
@@ -196,11 +197,28 @@ export function applyDrop(
     return null;
   }
 
-  console.log(newLayout);
-
   // Return a new object so React detects a change at the root level.
   // Always ensure the root weight is 1.
   return { ...newLayout, weight: 1 };
+}
+
+export function setMissingIds(
+  config: TileGroupConfig | TileConfig | TileTabGroupConfig | null
+) {
+  if (!config) return;
+
+  if (!config.id) {
+    config.id = uuid();
+  }
+  if (isGroup(config)) {
+    for (const item of config.items) {
+      setMissingIds(item);
+    }
+  } else if (isTabGroup(config)) {
+    for (const tab of config.tabs) {
+      setMissingIds(tab);
+    }
+  }
 }
 
 export function getContentContainerIds(
