@@ -1,9 +1,14 @@
 .tileLayout {
   --tab-strip-scrollbar-z: 80;
   --tab-strip-z: 75;
+
   --tab-group-z: 50;
+
   --tile-border-z: 100;
   --tile-border-overlay-z: 101;
+  --active-tile-border-z: 102;
+
+  --tile-border-drag-color: #0d639e;
 
   display: flex;
   flex-direction: column;
@@ -104,6 +109,45 @@
   z-index: var(--tile-border-z);
 }
 
+.tileBorder.horizontal {
+  height: var(--thickness);
+  min-height: var(--thickness);
+  width: 100%;
+}
+
+.tileBorder.vertical {
+  height: 100%;
+  width: var(--thickness);
+  min-width: var(--thickness);
+}
+
+/* this ::before element provides the color when grabbing. */
+.tileBorder::before {
+  content: ' ';
+  pointer-events: none;
+  position: absolute;
+  z-index: var(--active-tile-border-z);
+  top: 0%;
+  bottom: 0%;
+  left: 0%;
+  right: 0%;
+}
+
+.tileBorder:active::before {
+  background: var(--tile-border-drag-color);
+}
+
+.tileBorder.vertical:active::before {
+  left: -1px;
+  width: 3px;
+}
+
+.tileBorder.horizontal:active::before {
+  top: -1px;
+  height: 3px;
+}
+
+/* this ::after element provides a larger grab handle that smartly resizes. */
 .tileBorder::after {
   content: ' ';
   position: absolute;
@@ -116,13 +160,17 @@
   z-index: var(--tile-border-overlay-z);
 
   transition: transform 50ms ease-out;
+  opacity: 0;
+}
+
+.tileBorder:active::after {
+  --size: 4px;
 }
 
 .tileBorder.vertical::after {
   cursor: ew-resize;
   width: var(--size);
   transform: translateX(0.5px) translateX(-50%) scaleX(0.5);
-  opacity: 0;
 }
 
 .tileBorder.vertical:hover::after {
@@ -137,25 +185,6 @@
 
 .tileBorder.horizontal:hover::after {
   transform: translateY(0.5px) translateY(-50%);
-}
-
-.tileBorder.horizontal:hover::after,
-.tileBorder.vertical:hover::after {
-  /* TODO: Move to "default" styles */
-  background: rgba(0, 0, 0, 0.1);
-  opacity: 0;
-}
-
-.tileBorder.horizontal {
-  height: var(--thickness);
-  min-height: var(--thickness);
-  width: 100%;
-}
-
-.tileBorder.vertical {
-  height: 100%;
-  width: var(--thickness);
-  min-width: var(--thickness);
 }
 
 .tabStrip {

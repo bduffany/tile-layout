@@ -49,10 +49,12 @@ yarn add @xperjs/tile-layout
 - [ ] React Native: NOT supported, due to some architectural choices that require
       using DOM APIs directly.
 
-## Tested with
+## Works with
 
 - [x] Monaco
+  - [ ] Known issue: right-click menu gets cut off by other tiles.
 - [x] xterm.js
+  - [ ] Known issue: doesn't resize properly.
 
 ## Missing features
 

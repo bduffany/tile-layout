@@ -363,17 +363,6 @@ export default class TileLayout extends React.Component<
       <TileLayoutContext.Provider value={this}>
         {/* TODO: Better performance: only render visible content on the first render.
             Then render contents as they are requested, e.g. by clicking a tab. (?) */}
-        {contentContainerIds.map((containerId) => (
-          <ContentHost
-            key={contentContainerIdKey(containerId)}
-            registry={this.contentHostRegistry}
-            direction={containerId.direction || 'horizontal'}
-            components={
-              containerId.container === 'tab' ? tabComponents! : tileComponents
-            }
-            {...containerId}
-          />
-        ))}
         <DebugValue label="layout" value={this.state.layout} />
         <div
           className={classNames(
@@ -382,6 +371,21 @@ export default class TileLayout extends React.Component<
           )}
           ref={this.rootRef}
         >
+          <div className="TileLayout__ContentHosts">
+            {contentContainerIds.map((containerId) => (
+              <ContentHost
+                key={contentContainerIdKey(containerId)}
+                registry={this.contentHostRegistry}
+                direction={containerId.direction || 'horizontal'}
+                components={
+                  containerId.container === 'tab'
+                    ? tabComponents!
+                    : tileComponents
+                }
+                {...containerId}
+              />
+            ))}
+          </div>
           <Tile layout={this} config={this.state.layout} />
         </div>
       </TileLayoutContext.Provider>
@@ -512,6 +516,8 @@ class Tile extends React.Component<TileProps, TileState> {
   private lengthsAtDragStartPx = { a: 0, b: 0 };
 
   private onBorderMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return;
+
     const config = this.props.config as TileGroupConfig;
     const controllerDragStart = this.borderDragController.getDragStartHandler(
       this.onDragBorder.bind(this),
