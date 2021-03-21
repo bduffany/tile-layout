@@ -21,13 +21,13 @@ window.addEventListener('keydown', (e) => {
 });
 
 // TODO: consider consolidating tileRenderers & tabRenderers.
-const tileRenderers: TileContentComponents = {
+const tileComponents: TileContentComponents = {
   Todo,
   Editor,
   Terminal,
 };
 
-const tabRenderers: TabContentComponents = {
+const tabComponents: TabContentComponents = {
   Todo: TodoTab,
   Editor: EditorTab,
   Terminal: TerminalTab,
@@ -76,8 +76,8 @@ function App() {
   return (
     <div className={css.app}>
       <TileLayout
-        tileComponents={tileRenderers}
-        tabComponents={tabRenderers}
+        tileComponents={tileComponents}
+        tabComponents={tabComponents}
         layout={layout}
         onLayoutChange={onLayoutChange}
         activeTabState={activeTabState}
