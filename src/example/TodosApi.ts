@@ -17,7 +17,7 @@ export default interface TodosApi {
 export class FakeTodosApi implements TodosApi {
   private static data: Record<string, TodoList> = {
     'TODOLIST#1': {
-      title: 'TODOs for Saturday',
+      title: 'Saturday TODOs',
       todos: [
         {
           id: 'TODO#1',
@@ -30,7 +30,7 @@ export class FakeTodosApi implements TodosApi {
       ],
     },
     'TODOLIST#2': {
-      title: 'TODOs for Sunday',
+      title: 'Sunday TODOs',
       todos: [
         {
           id: 'TODO#3',
@@ -39,7 +39,7 @@ export class FakeTodosApi implements TodosApi {
       ],
     },
     'TODOLIST#3': {
-      title: 'Books to read',
+      title: 'Thanksgiving TODOs',
       todos: [
         {
           id: 'TODO#4',

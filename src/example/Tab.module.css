@@ -34,7 +34,7 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-:global(.TileLayout__Tab):hover .closeButton svg {
+:global(.TileLayout__Tab:hover:not(.TileLayout__Tab--active)) .closeButton svg {
   stroke: rgba(255, 255, 255, 0.3);
 }
 

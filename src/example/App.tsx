@@ -20,6 +20,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.ctrlKey) {
     localStorage['layout'] = '';
     localStorage['activeTabState'] = '';
+    localStorage['FakeEditorData'] = '';
     window.location.reload();
   }
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useState } from 'react';
+import React from 'react';
 import Tab from './Tab';
 import css from './Todo.module.css';
 import { TodosApiContext } from './TodosApi';
@@ -14,7 +14,7 @@ import { ReactComponent as CheckSquare } from './check-square.svg';
 
 export default function Todo({ id }: TileContentComponentProps) {
   // TODO: Make this async
-  const todosApi = useContext(TodosApiContext);
+  const todosApi = React.useContext(TodosApiContext);
   const todoList = todosApi.getTodoList(id)!;
 
   return (
@@ -35,7 +35,7 @@ export default function Todo({ id }: TileContentComponentProps) {
 
 export function TodoTab({ id, direction }: TabContentComponentProps) {
   // TODO: Make this async
-  const todosApi = useContext(TodosApiContext);
+  const todosApi = React.useContext(TodosApiContext);
   const todoList = todosApi.getTodoList(id)!;
 
   return (

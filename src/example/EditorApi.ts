@@ -16,11 +16,27 @@ export default interface IEditorApi {
 export class FakeEditorApi implements IEditorApi {
   static data: Record<string, EditorState> = {
     'EDITOR#1': {
-      title: 'library.ts',
+      title: 'sort.ts',
       language: 'typescript',
-      value: `export default function BubbleSort() {
-  // TODO
+      value: `export function bubbleSort<T>(array: T[]) {
+  for (let i = array.length - 1; i > 1; i--) {
+    bubbleUpTo(i, array);
+  }
 }
+
+function bubbleUpTo<T>(index: number, array: T[]) {
+  for (let i = 0; i < index; i++) {
+    const left = array[i], right = array[i + 1];
+    if (left > right) {
+      array[i] = right;
+      array[i + 1] = left;
+    }
+  }
+}
+
+const array = [2, 3, 1, 5, 4, 4];
+bubbleSort(array);
+console.log(array);
 `,
     },
   };
