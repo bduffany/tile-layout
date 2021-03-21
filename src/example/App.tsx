@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import css from './App.module.css';
 import { ActiveTabState, TileLayoutConfig } from '../layout';
 import TileLayout, {
+  ITabStrip,
   TabContentComponents,
   TileContentComponents,
 } from '../TileLayout';
@@ -9,6 +10,8 @@ import Todo, { TodoTab } from './Todo';
 import { useJsonLocalStorage } from '../util/useLocalStorage';
 import Editor, { EditorTab } from './Editor';
 import Terminal, { TerminalTab } from './Terminal';
+import { EditorApiContext } from './EditorApi';
+import uuid from '../util/uuid';
 
 window.React = React;
 
@@ -73,11 +76,26 @@ function App() {
     onActiveTabStateChange,
   ] = useJsonLocalStorage<ActiveTabState>('activeTabState', '{}');
 
+  const editorApi = React.useContext(EditorApiContext);
+
+  const onDoubleClickTabStrip = useCallback(
+    (tabStrip: ITabStrip) => {
+      const id = uuid();
+      editorApi.addEditor(id, { title: 'Untitled', language: '', value: '' });
+      tabStrip.append({
+        id,
+        type: 'Editor',
+      });
+    },
+    [editorApi]
+  );
+
   return (
     <div className={css.app}>
       <TileLayout
         tileComponents={tileComponents}
         tabComponents={tabComponents}
+        onDoubleClickTabStrip={onDoubleClickTabStrip}
         layout={layout}
         onLayoutChange={onLayoutChange}
         activeTabState={activeTabState}

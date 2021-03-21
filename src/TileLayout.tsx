@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActiveTabState,
+  applyAppend,
   applyDrop,
   applyRemove,
   ContentContainerId,
@@ -36,7 +37,7 @@ import {
 import DebugValue from './util/DebugValue';
 import { disposeAll, DisposeFns, eventListener } from './util/dispose';
 import { HorizontalScrollbar } from './util/Scrollbar';
-import { ContentHost, ContentOutlet } from './content';
+import { ContentHost, ContentHostRegistry, ContentOutlet } from './content';
 import namespace from './util/namespace';
 import { customEventFactory } from './util/events';
 import IRegistry from './util/Registry';
@@ -70,6 +71,7 @@ export type TileLayoutProps = JSX.IntrinsicElements['div'] & {
   activeTabState?: ActiveTabState;
   onLayoutChange?: (layout: TileLayoutConfig | null) => void;
   onActiveTabStateChange?: (state: ActiveTabState) => void;
+  onDoubleClickTabStrip?: (tabStrip: ITabStrip) => void;
 };
 
 type TileLayoutContextValue = TileLayout;
@@ -248,6 +250,14 @@ export default class TileLayout extends React.Component<
     this.tabsById.set(tab.props.config.id!, tab);
   }
 
+  appendTile(tabGroupId: LayoutItemId, tile: TileConfig) {
+    const layout = applyAppend(this.state.layout, tabGroupId, tile);
+    this.setState({ layout });
+    setTimeout(() => {
+      this.focusTab(tile.id!);
+    });
+  }
+
   handleDrop(e: DragEvent, to: IDropzoneComponent) {
     const from = droppedComponent<DraggableComponent>(e);
     if (!from) {
@@ -374,19 +384,6 @@ export default class TileLayout extends React.Component<
         </div>
       </TileLayoutContext.Provider>
     );
-  }
-}
-
-class ContentHostRegistry
-  implements IRegistry<ContentContainerId, ContentHost> {
-  values = new Map<string, ContentHost>();
-
-  register(id: ContentContainerId, value: ContentHost) {
-    this.values.set(contentContainerIdKey(id)!, value);
-  }
-
-  unregister(id: ContentContainerId) {
-    this.values.delete(contentContainerIdKey(id)!);
   }
 }
 
@@ -845,7 +842,13 @@ type TabStripProps = Omit<JSX.IntrinsicElements['div'], 'id'> & {
 
 type TabStripState = DraggableState & DropzoneState;
 
-class TabStrip extends React.Component<TabStripProps, TabStripState> {
+export interface ITabStrip {
+  append(tile: TileLayoutConfig): void;
+}
+
+class TabStrip
+  extends React.Component<TabStripProps, TabStripState>
+  implements ITabStrip {
   static contextType = TileLayoutContext;
   context!: React.ContextType<typeof TileLayoutContext>;
 
@@ -893,10 +896,20 @@ class TabStrip extends React.Component<TabStripProps, TabStripState> {
     this.props.layout.handleDrop(e, this);
   }
 
+  onDoubleClick() {
+    this.props.layout.props.onDoubleClickTabStrip?.(this);
+  }
+
+  append(tile: TileConfig) {
+    // TODO: Validate.
+    this.props.layout.appendTile(this.props.config.id!, tile);
+  }
+
   render() {
     return (
       <div
         ref={this.rootRef}
+        onDoubleClick={this.onDoubleClick.bind(this)}
         className={classNames(
           css.tabStrip,
           css.tileDragHandle,

@@ -4,10 +4,11 @@ type EditorState = {
   title: string;
   language: string;
   value: string;
-  dirty: boolean;
+  dirty?: boolean;
 };
 
 export default interface IEditorApi {
+  addEditor(id: string, state: EditorState): void;
   getEditorState(id: string): EditorState | null;
   setDirty(id: string, dirty?: boolean): void;
 }
@@ -17,13 +18,16 @@ export class FakeEditorApi implements IEditorApi {
     'EDITOR#1': {
       title: 'library.ts',
       language: 'typescript',
-      dirty: false,
       value: `export default function BubbleSort() {
   // TODO
 }
 `,
     },
   };
+
+  addEditor(id: string, state: EditorState) {
+    FakeEditorApi.data[id] = state;
+  }
 
   getEditorState(id: string) {
     return FakeEditorApi.data[id];

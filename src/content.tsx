@@ -46,3 +46,16 @@ export function ContentOutlet({ type, container, id }: ContentOutletProps) {
   const outletId = contentContainerIdKey({ type, container, id });
   return <Outlet id={outletId} />;
 }
+
+export class ContentHostRegistry
+  implements IRegistry<ContentContainerId, ContentHost> {
+  values = new Map<string, ContentHost>();
+
+  register(id: ContentContainerId, value: ContentHost) {
+    this.values.set(contentContainerIdKey(id)!, value);
+  }
+
+  unregister(id: ContentContainerId) {
+    this.values.delete(contentContainerIdKey(id)!);
+  }
+}

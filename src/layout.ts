@@ -127,6 +127,15 @@ export function tileInstanceCount(
   return 0;
 }
 
+export function applyAppend(
+  layout: TileLayoutConfig | null,
+  tabGroupId: LayoutItemId,
+  tile: TileConfig
+): TileLayoutConfig {
+  layout = insert(tile, tabGroupId, { tabIndex: -1 }, layout);
+  return { ...layout };
+}
+
 export function applyRemove(
   layout: TileLayoutConfig | null,
   id: LayoutItemId
