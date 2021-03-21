@@ -8,39 +8,38 @@ High-performance VSCode-style tile layout for React.
 yarn add @xperjs/tile-layout
 ```
 
-## Features
+## User experience
 
 - [x] **Resizable tiles**: click and drag borders to resize.
 - [x] **Tabbed layout**: Drag and drop tabs from one tab strip to another.
 - [x] **Splitting**: Drag a tab into a region of another tile to split
       the view with that tile.
-
-## Performance
-
+- [x] **Add new tabs**: double-click the tab bar to add new tabs.
 - [x] **High performance resizing**: unlike some other libraries out there,
       resizing is very smooth.
 - [x] Horizontal tab scrolling at 60FPS.
 
-## Software architecture
+## Developer experience
 
-- [x] **Minimal re-renders**: to ensure high performance, `TileLayout` does
-      not re-render your components unexpectedly.
 - [x] **Low-level API**: you get full control over everything that renders inside
       the tabs as well as the tiles.
-- [x] **Utility components**: Since you control everything that renders inside
-      the layout, building basic features like a close button can be a bit
-      involved. Some utility components are included to take care of these
-      common tasks, like `TabCloseButton`, which closes a tab
-- [x] **Unopinionated**: All utility components come with no styling at all.
-      You can copy the example components and then tweak the styles to your
-      liking.
-- [x] **Non-trivial example app**: if you don't want to deal with the low-level
-      API, you can copy the components from the examples.
+- [x] **Minimal re-renders**: to ensure high performance, `TileLayout` does
+      not re-render your components unexpectedly.
 - [x] **Simple layout format**: Layouts are specified in a simple JSON format.
       You can construct layouts by hand without needing to learn lots of
       weird abstractions. Because it is just JSON, you can persist the
       layout to a database or local storage, and then restore it on the
       next user session.
+- [x] **Utility components**: Since you control everything that renders inside
+      the layout, building basic features like a close button can be a bit
+      involved. Some utility components are included to take care of these
+      common tasks, like `TabCloseButton`, which closes a tab
+- [x] **Unopinionated**: The layout itself comes with basic styling that
+      is meant to be overridden. Utility components come with no styling at
+      all. For now, you can copy the example components and then tweak the
+      styles to your liking.
+- [x] **Full-featured example app**: if you don't want to deal with the
+      low-level API, you can copy the components from the examples.
 
 ## Supported environments
 
