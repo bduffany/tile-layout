@@ -1,6 +1,12 @@
 # @xperjs/tile-layout
 
-A high-performance VSCode-style tile layout for React.
+High-performance VSCode-style tile layout for React.
+
+## Install
+
+```bash
+yarn install @xperjs/tile-layout
+```
 
 ## Features
 
