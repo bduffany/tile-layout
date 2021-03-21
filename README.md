@@ -1,4 +1,4 @@
-# @xperjs/tile-layout
+# @xperjs/ide-layout
 
 High-performance VSCode-style tile layout for React.
 
@@ -15,6 +15,8 @@ yarn add @xperjs/tile-layout
 - [x] **Splitting**: Drag a tab into a region of another tile to split
       the view with that tile.
 - [x] **Add new tabs**: double-click the tab bar to add new tabs.
+- [x] **Saved layouts**: the layout can be saved and restored in subsequent
+      sessions.
 - [x] **High performance resizing**: unlike some other libraries out there,
       resizing is very smooth.
 - [x] Horizontal tab scrolling at 60FPS.
@@ -60,6 +62,8 @@ supported yet. PRs welcome!
 User features:
 
 - [ ] Drag entire tab strips by clicking and dragging the tab strip itself.
+- [ ] When double-clicking a tile border, evenly resize the tiles along
+      that axis.
 - [ ] When double-clicking a tab, maximize or restore the tab.
 - [ ] Allow tabs to wrap instead of scrolling.
 - [ ] Allow resizing tiles at junction points
@@ -68,6 +72,10 @@ User features:
 
 Developer features:
 
+- [ ] Vertically-oriented tab strips
+- [ ] _Consider_ supporting expando sections within tiles. (It should be
+      possible to implement this at the application level but it would be
+      nice to provide utility components for this)
 - [ ] Allow rendering arbitrary content in the tab strip, such as menus
       that control which tabs are open.
 - [ ] Expose more tab strip APIs like close others, close all, close to
