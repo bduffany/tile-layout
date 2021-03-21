@@ -57,14 +57,22 @@ yarn add @xperjs/tile-layout
 VS Code's tile layout has _tons_ of features. The following features aren't
 supported yet. PRs welcome!
 
-- [ ] Allow rendering items in the upper right (e.g. "Close all").
-- [ ] Programmatically add tabs.
+User features:
+
 - [ ] Drag entire tab strips by clicking and dragging the tab strip itself.
 - [ ] When double-clicking a tab, maximize or restore the tab.
 - [ ] Allow tabs to wrap instead of scrolling.
 - [ ] Allow resizing tiles at junction points
 - [ ] Ctrl+Click and drag to clone the tab that you're dragging, instead of
       moving it.
+
+Developer features:
+
+- [ ] Allow rendering arbitrary content in the tab strip, such as menus
+      that control which tabs are open.
+- [ ] Expose more tab strip APIs like close others, close all, close to
+      the right.
+- [ ] Allow programmatically manipulating tabs.
 
 ## Getting started
 
