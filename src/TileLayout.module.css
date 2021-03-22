@@ -14,8 +14,6 @@
   flex-direction: column;
 
   /* TODO: Are these needed? */
-  position: relative;
-  width: 100%;
   height: 100%;
 }
 
@@ -57,7 +55,7 @@
   display: flex;
   flex-direction: column;
 
-  z-index: var(--tab-group-z);
+  /* z-index: var(--tab-group-z); */
 }
 
 .tileTabGroup.verticalTabs {
@@ -102,11 +100,14 @@
 .tileBorder {
   /* TODO: Allow overriding in JS */
   --thickness: 1px;
-  --tolerance: 8px;
+  --tolerance: 4px;
   background: black;
-  position: relative;
 
   z-index: var(--tile-border-z);
+}
+
+.tileBorder:active {
+  z-index: var(--active-tile-border-z);
 }
 
 .tileBorder.horizontal {
@@ -121,70 +122,41 @@
   min-width: var(--thickness);
 }
 
-/* this ::before element provides the color when grabbing. */
-.tileBorder::before {
-  content: ' ';
-  pointer-events: none;
-  position: absolute;
-  z-index: var(--active-tile-border-z);
-  top: 0%;
-  bottom: 0%;
-  left: 0%;
-  right: 0%;
-}
-
-.tileBorder:active::before {
-  background: var(--tile-border-drag-color);
-}
-
-.tileBorder.vertical:active::before {
-  left: -1px;
-  width: 3px;
-}
-
-.tileBorder.horizontal:active::before {
-  top: -1px;
-  height: 3px;
-}
-
 /* this ::after element provides a larger grab handle that smartly resizes. */
 .tileBorder::after {
+  background: transparent;
   content: ' ';
-  position: absolute;
-  top: 0%;
-  bottom: 0%;
-  left: 0%;
-  right: 0%;
+  display: block;
   --size: calc(var(--thickness) + 2 * var(--tolerance));
-
   z-index: var(--tile-border-overlay-z);
+}
 
-  transition: transform 50ms ease-out;
-  opacity: 0;
+.tileBorder:hover:not(:active)::after {
+  transition: background 100ms ease-out;
+}
+
+.tileBorder:hover::after {
+  --size: calc(var(--thickness) + 4 * var(--tolerance));
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .tileBorder:active::after {
   --size: 4px;
+  background: var(--tile-border-drag-color);
 }
 
 .tileBorder.vertical::after {
+  height: 100%;
   cursor: ew-resize;
+  margin-left: calc(-1 * (var(--size) - 1px) / 2);
   width: var(--size);
-  transform: translateX(0.5px) translateX(-50%) scaleX(0.5);
-}
-
-.tileBorder.vertical:hover::after {
-  transform: translateX(0.5px) translateX(-50%);
 }
 
 .tileBorder.horizontal::after {
+  width: 100%;
   cursor: ns-resize;
+  margin-top: calc(-1 * (var(--size) - 1px) / 2);
   height: var(--size);
-  transform: translateY(0.5px) translateY(-50%) scaleY(0.5);
-}
-
-.tileBorder.horizontal:hover::after {
-  transform: translateY(0.5px) translateY(-50%);
 }
 
 .tabStrip {
