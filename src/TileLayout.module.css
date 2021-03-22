@@ -86,6 +86,12 @@
   transition: 200ms ease-out;
 }
 
+/* iframes will swallow events while dragging a tab; pointer-events: none
+   works around this. */
+.draggingDescendant iframe {
+  pointer-events: none;
+}
+
 .draggingDescendant .draggingOtherTileOver::after {
   --movement-duration: 100ms;
 
