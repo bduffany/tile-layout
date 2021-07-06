@@ -907,7 +907,8 @@ class TabStrip
     this.props.layout.handleDrop(e, this);
   }
 
-  onDoubleClick() {
+  onDoubleClick(e: React.MouseEvent) {
+    e.preventDefault();
     this.props.layout.props.onDoubleClickTabStrip?.(this);
   }
 
