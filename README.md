@@ -2,6 +2,8 @@
 
 High-performance VSCode-style tile layout for React.
 
+![demo video](https://user-images.githubusercontent.com/2414826/124660216-ea649e00-de73-11eb-9c53-cab5e19abe7f.mp4)
+
 ## Install
 
 ```bash
